@@ -1,18 +1,22 @@
-import React from 'react';
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
-const Layout = ({ children }: { children: React.ReactNode }) => {
-    return (
-        <html lang="en">
-            <head>
-                {/* Add any head elements here, like meta tags or links to stylesheets */}
-            </head>
-            <body>
-                <header>Header</header>
-                <main>{children}</main>
-                <footer>Footer</footer>
-            </body>
-        </html>
-    );
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Content Strategist",
+  description: "Web crawler and content analysis tool",
 };
 
-export default Layout;
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>{children}</body>
+    </html>
+  );
+}
