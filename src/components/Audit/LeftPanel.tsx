@@ -8,14 +8,18 @@ import { FileTree } from "./FileTree"
 import { buildFolderTree } from "@/lib/utils"
 
 interface LeftPanelProps {
-  pages: any[]
-  sites: any[]
-  selectedSite: any
-  setSelectedSite: (site: any) => void
+  pages: Array<{ path: string }>
+  sites: Array<{ id: number; name: string; domain: string }>
+  selectedSite: { id: number; name: string; domain: string }
+  setSelectedSite: (site: { id: number; name: string; domain: string }) => void
   selectedPath: string
   setSelectedPath: (path: string) => void
   onNewCrawl: () => void
   onShowSiteSettings: () => void
+  crawlProgress: number
+  totalPages: number
+  isCrawling: boolean
+  isCrawlButtonDisabled: boolean
 }
 
 export function LeftPanel({
@@ -26,24 +30,23 @@ export function LeftPanel({
   selectedPath,
   setSelectedPath,
   onNewCrawl,
-  onShowSiteSettings
+  onShowSiteSettings,
+  crawlProgress,
+  totalPages,
+  isCrawling,
+  isCrawlButtonDisabled
 }: LeftPanelProps) {
   const folderTree = buildFolderTree(pages)
-
-  // Mock crawl progress data
-  const totalPages = 1000
-  const crawledPages = 750
-  const foundPages = 800
 
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b">
         <div className="space-y-2">
           <div className="flex justify-between text-xs">
-            <span>Found: {foundPages}</span>
-            <span>Crawled: {crawledPages}</span>
+            <span>Progress: {crawlProgress.toFixed(2)}%</span>
+            <span>Pages: {pages.length} / {totalPages}</span>
           </div>
-          <Progress value={(crawledPages / totalPages) * 100} className="w-full h-1" />
+          <Progress value={crawlProgress} className="w-full h-1" />
         </div>
       </div>
       <div className="flex-1 overflow-hidden">
@@ -85,7 +88,7 @@ export function LeftPanel({
                 {site.domain}
               </SelectItem>
             ))}
-            <SelectItem value="new-crawl" className="text-primary font-medium">
+            <SelectItem value="new-crawl" className="text-primary font-medium" disabled={isCrawlButtonDisabled}>
               <div className="flex items-center">
                 <Plus className="w-3 h-3 mr-2" />
                 Run New Crawl
@@ -94,6 +97,12 @@ export function LeftPanel({
           </SelectContent>
         </Select>
       </div>
+      <button 
+        onClick={onNewCrawl} 
+        disabled={isCrawlButtonDisabled}
+      >
+        {isCrawling ? "Crawling..." : "Start New Crawl"}
+      </button>
     </div>
   )
 }

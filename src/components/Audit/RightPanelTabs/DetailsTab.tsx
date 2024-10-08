@@ -5,8 +5,18 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Eye, EyeOff } from "lucide-react"
 
+interface Page {
+  id: number;
+  title: string;
+  type: string;
+  path: string;
+  description: string;
+  fields: Record<string, string>;
+  ogImage: string;
+}
+
 interface DetailsTabProps {
-  page: any
+  page: Page
   fields: Record<string, string[]>
   visibleFields: string[]
   onDecision: (fieldType: string, value: string) => void

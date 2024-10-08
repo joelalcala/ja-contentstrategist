@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function buildFolderTree(pages: any[]) {
+export function buildFolderTree(pages: Array<{ path: string }>) {
   const tree: Record<string, any> = { "/": {} }
   pages.forEach(page => {
     const parts = page.path.split('/').filter(Boolean)

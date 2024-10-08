@@ -7,20 +7,88 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ApifyClient } from 'apify-client'
 
-export default function CrawlScreen() {
+const client = new ApifyClient({
+	token: process.env.NEXT_PUBLIC_APIFY_TOKEN || '',
+})
+
+if (!process.env.NEXT_PUBLIC_APIFY_TOKEN) {
+	console.error('NEXT_PUBLIC_APIFY_TOKEN is not set')
+}
+
+export default function Crawl() {
+	const [isCrawling, setIsCrawling] = useState(false)
+	const [error, setError] = useState<string | null>(null)
 	const [domain, setDomain] = useState("")
 	const [scope, setScope] = useState("entire")
-	const [limit, setLimit] = useState("100")
-	const [isCrawling, setIsCrawling] = useState(false)
+	const [limit, setLimit] = useState("50")
 	const router = useRouter()
 
 	const handleCrawl = async () => {
+		if (isCrawling) {
+			setError('A crawl is already in progress')
+			return
+		}
+
 		setIsCrawling(true)
-		// Simulate a delay before redirecting
-		await new Promise(resolve => setTimeout(resolve, 1000))
-		// Redirect to the audit page
-		router.push(`/audit?domain=${encodeURIComponent(domain)}&scope=${scope}&limit=${limit}`)
+		setError(null)
+
+		try {
+			const input = {
+				runMode: "DEVELOPMENT",
+				startUrls: [{ url: domain }],
+				keepUrlFragments: false,
+				linkSelector: "a[href]",
+				globs: [{ glob: `${domain}/*` }],
+				pseudoUrls: [],
+				excludes: [{ glob: "/**/*.{png,jpg,jpeg,pdf}" }],
+				pageFunction: `
+					async function pageFunction(context) {
+						const $ = context.jQuery;
+						const pageTitle = $('title').first().text();
+						const h1 = $('h1').first().text();
+						const first_h2 = $('h2').first().text();
+						const random_text_from_the_page = $('p').first().text();
+
+						context.log.info(\`URL: \${context.request.url}, TITLE: \${pageTitle}\`);
+
+						// Safely access processedRequestCount
+						const processedRequestCount = context.crawler && context.crawler.processedRequestCount ? context.crawler.processedRequestCount : 0;
+
+						return {
+							url: context.request.url,
+							pageTitle,
+							h1,
+							first_h2,
+							random_text_from_the_page,
+							processedRequestCount
+						};
+					}
+				`,
+				injectJQuery: true,
+				proxyConfiguration: { useApifyProxy: true },
+				maxRequestRetries: 3,
+				maxPagesPerCrawl: limit === "Entire site" ? 0 : parseInt(limit),
+				maxConcurrency: 10,
+				pageLoadTimeoutSecs: 120, // Increase timeout to 2 minutes
+			}
+
+			console.log('Starting Apify actor run with input:', input)
+
+			// Start the actor run without waiting for it to finish
+			const run = await client.actor("moJRLRc85AitArpNN").call(input, { waitSecs: 0 }
+
+			console.log('Apify actor run started with ID:', run.id)
+
+			// Redirect immediately after starting the run
+			router.push(`/audit?runId=${run.id}`)
+
+		} catch (err: unknown) {
+			console.error('Error starting crawl:', err)
+			setError(`Failed to start crawl: ${err instanceof Error ? err.message : 'Unknown error'}`)
+			setIsCrawling(false)
+		}
 	}
 
 	return (
@@ -74,6 +142,7 @@ export default function CrawlScreen() {
 							<Button onClick={handleCrawl} disabled={isCrawling || !domain} className="w-full">
 								{isCrawling ? "Starting Crawl..." : "Start Crawl"}
 							</Button>
+							{error && <div className="text-red-500">{error}</div>}
 						</div>
 					</CardContent>
 				</Card>

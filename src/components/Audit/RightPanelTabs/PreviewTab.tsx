@@ -1,8 +1,18 @@
 import React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
+interface Page {
+  id: number;
+  title: string;
+  type: string;
+  path: string;
+  description: string;
+  fields: Record<string, string>;
+  ogImage: string;
+}
+
 interface PreviewTabProps {
-  page: any
+  page: Page
 }
 
 export function PreviewTab({ page }: PreviewTabProps) {

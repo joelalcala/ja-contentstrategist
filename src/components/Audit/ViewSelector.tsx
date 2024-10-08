@@ -18,7 +18,30 @@ interface ViewSelectorProps {
   toggleFieldVisibility: (fieldType: string) => void
   activeView: string
   setActiveView: (view: string) => void
-  table: any
+  table: {
+    getAllColumns: () => Array<{
+      id: string
+      getIsVisible: () => boolean
+      toggleVisibility: (value: boolean) => void
+    }>
+  }
+}
+
+type ViewType = 'default' | 'compact' | 'detailed';
+
+const views: Record<ViewType, { columns: string[], fields: string[] }> = {
+  default: {
+    columns: ["title", "path", "type"],
+    fields: [],  // This will be populated dynamically
+  },
+  compact: {
+    columns: ["title", "type"],
+    fields: ["Status"],
+  },
+  detailed: {
+    columns: ["title", "path", "type"],
+    fields: [],  // This will be populated dynamically
+  },
 }
 
 export function ViewSelector({
@@ -31,22 +54,11 @@ export function ViewSelector({
   setActiveView,
   table
 }: ViewSelectorProps) {
-  const views = {
-    default: {
-      columns: ["title", "path", "type"],
-      fields: Object.keys(fields),
-    },
-    compact: {
-      columns: ["title", "type"],
-      fields: ["Status"],
-    },
-    detailed: {
-      columns: ["title", "path", "type"],
-      fields: Object.keys(fields),
-    },
-  }
+  // Dynamically set the fields for 'default' and 'detailed' views
+  views.default.fields = Object.keys(fields);
+  views.detailed.fields = Object.keys(fields);
 
-  const handleViewChange = (view: string) => {
+  const handleViewChange = (view: ViewType) => {
     setActiveView(view)
     setVisibleColumns(views[view].columns)
     const newVisibleFields = views[view].fields

@@ -12,6 +12,7 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
+  Row,
 } from "@tanstack/react-table"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
@@ -19,16 +20,26 @@ import { ArrowUpDown } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ViewSelector } from './ViewSelector'
 
+interface Page {
+  id: number;
+  title: string;
+  type: string;
+  path: string;
+  description: string;
+  fields: Record<string, string>;
+  ogImage: string;
+}
+
 interface PageTableProps {
-  data: any[]
+  data: Page[]
   onDecision: (id: number, fieldType: string, value: string) => void
   fields: Record<string, string[]>
   visibleColumns: string[]
   setVisibleColumns: (columns: string[]) => void
   visibleFields: string[]
   toggleFieldVisibility: (fieldType: string) => void
-  onSelectPage: (page: any) => void
-  selectedPage: any
+  onSelectPage: (page: Page) => void
+  selectedPage: Page | null
   selectedRows: Set<number>
   setSelectedRows: (rows: Set<number>) => void
   activeView: string
@@ -52,7 +63,7 @@ export function PageTable({
   setActiveView,
   domain
 }: PageTableProps) {
-  const columns: ColumnDef<any>[] = [
+  const columns: ColumnDef<Page>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -95,7 +106,7 @@ export function PageTable({
     ...Object.keys(fields).map((fieldType) => ({
       accessorKey: `fields.${fieldType}`,
       header: fieldType,
-      cell: ({ row }) => (
+      cell: ({ row }: { row: Row<Page> }) => (
         <Select
           value={row.original.fields[fieldType] || "not_set"}
           onValueChange={(value) => onDecision(row.original.id, fieldType, value)}

@@ -1,97 +1,32 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from "react"
+import { useSearchParams } from "next/navigation"
+import { ApifyClient } from 'apify-client'
 import { LeftPanel } from "@/components/audit/LeftPanel"
 import { RightPanel } from "@/components/audit/RightPanel"
+import { PageTable } from '@/components/audit/PageTable'
+import { AddFieldModal } from '@/components/audit/AddFieldModal'
+import { FiltersDialog } from '@/components/audit/FiltersDialog'
 import { ChevronDown, ChevronRight, Settings, Plus, X, Search, User, Folder, Home, FileIcon, Send, Eye, EyeOff, Filter, Settings as ConfigIcon, ArrowUpDown, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-  VisibilityState,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
-import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Progress } from "@/components/ui/progress"
-import { PageTable } from '@/components/audit/PageTable'
-import { AddFieldModal } from '@/components/audit/AddFieldModal'
-import { FiltersDialog } from '@/components/audit/FiltersDialog'
 
-// Include all the component definitions (DropdownFilter, LeftPanel, FileTree, FiltersDialog, PageTable, ViewSelector, RightPanel, AddFieldModal) here
-
-// Mock data for pages
-const mockPages = [
-  { id: 1, title: "Home", type: "landing", path: "/", description: "Welcome to our website", fields: {}, ogImage: "https://example.com/og-home.jpg" },
-  { id: 2, title: "About Us", type: "article", path: "/about", description: "Learn about our company", fields: {}, ogImage: "https://example.com/og-about.jpg" },
-  { id: 3, title: "California News", type: "article", path: "/news/california", description: "Latest news from California", fields: {}, ogImage: "https://example.com/og-california.jpg" },
-  { id: 4, title: "Annual Conference", type: "event", path: "/events/annual-conference", description: "Join our annual conference", fields: {}, ogImage: "https://example.com/og-conference.jpg" },
-  { id: 5, title: "Contact", type: "form", path: "/contact", description: "Get in touch with us", fields: {}, ogImage: "https://example.com/og-contact.jpg" },
-  { id: 6, title: "Products", type: "listing", path: "/products", description: "Browse our products", fields: {}, ogImage: "https://example.com/og-products.jpg" },
-  { id: 7, title: "Product A", type: "product", path: "/products/a", description: "Details about Product A", fields: {}, ogImage: "https://example.com/og-product-a.jpg" },
-  { id: 8, title: "Product B", type: "product", path: "/products/b", description: "Details about Product B", fields: {}, ogImage: "https://example.com/og-product-b.jpg" },
-  { id: 9, title: "Blog", type: "listing", path: "/blog", description: "Our latest blog posts", fields: {}, ogImage: "https://example.com/og-blog.jpg" },
-  { id: 10, title: "Privacy Policy", type: "legal", path: "/privacy", description: "Our privacy policy", fields: {}, ogImage: "https://example.com/og-privacy.jpg" },
-  { id: 11, title: "Terms of Service", type: "legal", path: "/terms", description: "Our terms of service", fields: {}, ogImage: "https://example.com/og-terms.jpg" },
-  { id: 12, title: "FAQ", type: "support", path: "/faq", description: "Frequently asked questions", fields: {}, ogImage: "https://example.com/og-faq.jpg" },
-]
+const client = new ApifyClient({
+  token: process.env.NEXT_PUBLIC_APIFY_TOKEN || '',
+})
 
 // Initial fields
 const initialFields = {
   Status: ["Needs review", "Keep as is", "Rewrite", "Merge", "Delete"],
 }
 
-// Mock data for sites
+// Mock data for sites (you may want to replace this with real data later)
 const mockSites = [
   { id: 1, name: "Main Website", domain: "www.example.com" },
   { id: 2, name: "Blog", domain: "blog.example.com" },
@@ -99,9 +34,11 @@ const mockSites = [
 ]
 
 export default function AuditPage() {
+  const searchParams = useSearchParams()
+  const runId = searchParams.get('runId')
   const [leftPanelWidth, setLeftPanelWidth] = useState(256)
   const [rightPanelWidth, setRightPanelWidth] = useState(480)
-  const [pages, setPages] = useState(mockPages)
+  const [pages, setPages] = useState<any[]>([])
   const [selectedPage, setSelectedPage] = useState(null)
   const [fields, setFields] = useState(initialFields)
   const [visibleColumns, setVisibleColumns] = useState(["title", "path", "type"])
@@ -122,6 +59,10 @@ export default function AuditPage() {
   const [bulkFieldValue, setBulkFieldValue] = useState("")
   const [activeView, setActiveView] = useState("default")
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  const [crawlStatus, setCrawlStatus] = useState('')
+  const [crawlProgress, setCrawlProgress] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [isCrawlButtonDisabled, setIsCrawlButtonDisabled] = useState(false)
 
   const handleNewCrawl = () => {
     setShowNewCrawl(true)
@@ -217,8 +158,64 @@ export default function AuditPage() {
     }
   }, [isResizing])
 
+  useEffect(() => {
+    if (!runId) return
+
+    const pollCrawlProgress = async () => {
+      try {
+        const runInfo = await client.run(runId).get()
+        if (runInfo) {
+          setCrawlStatus(runInfo.status)
+          if (runInfo.status === 'RUNNING' && runInfo.progress) {
+            setCrawlProgress(runInfo.progress.percent * 100)
+            setTotalPages(runInfo.progress.totalPages || 0)
+            await fetchCrawledPages(runId)
+          } else if (runInfo.status === 'SUCCEEDED') {
+            setCrawlProgress(100)
+            await fetchCrawledPages(runId)
+          }
+          setIsCrawlButtonDisabled(runInfo.status === 'RUNNING' || runInfo.status === 'READY')
+          console.log('Crawl status:', runInfo.status, 'Progress:', crawlProgress.toFixed(2) + '%')
+        }
+      } catch (err) {
+        console.error('Error fetching run info:', err)
+      }
+    }
+
+    pollCrawlProgress()
+    const pollInterval = setInterval(pollCrawlProgress, 5000)
+
+    return () => clearInterval(pollInterval)
+  }, [runId])
+
+  const fetchCrawledPages = async (runId: string) => {
+    try {
+      const { items } = await client.dataset(runId).listItems()
+      const crawledPages = items.map((item: any) => ({
+        id: item.url,
+        title: item.pageTitle,
+        type: 'page',
+        path: new URL(item.url).pathname,
+        description: item.h1,
+        fields: {},
+        ...item
+      }))
+      setPages(prevPages => [...prevPages, ...crawledPages])
+    } catch (err) {
+      console.error('Error fetching crawled pages:', err)
+    }
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gray-100">
+      <div className="bg-white p-4 border-b">
+        <h2 className="text-lg font-semibold mb-2">Crawl Progress</h2>
+        <div className="flex items-center space-x-4">
+          <Progress value={crawlProgress} className="w-64" />
+          <span>{crawlProgress.toFixed(2)}%</span>
+          <span>Status: {crawlStatus}</span>
+        </div>
+      </div>
       <div className="flex flex-1 overflow-hidden">
         <div style={{ width: `${leftPanelWidth}px` }} className="bg-white border-r flex-shrink-0">
           <LeftPanel
@@ -230,6 +227,10 @@ export default function AuditPage() {
             setSelectedPath={setSelectedPath}
             onNewCrawl={handleNewCrawl}
             onShowSiteSettings={() => setShowSiteSettings(true)}
+            crawlProgress={crawlProgress}
+            totalPages={totalPages}
+            isCrawling={crawlStatus === 'RUNNING'}
+            isCrawlButtonDisabled={isCrawlButtonDisabled}
           />
         </div>
         <div

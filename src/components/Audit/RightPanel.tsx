@@ -6,17 +6,25 @@ import { PreviewTab } from "./RightPanelTabs/PreviewTab"
 import { SimilarPagesTab } from "./RightPanelTabs/SimilarPagesTab"
 import { CommentsSection } from "./RightPanelSections/CommentsSection"
 
+export interface Page {
+  id: number;
+  title: string;
+  type: string;
+  path: string;
+  description: string;
+  fields: Record<string, string>;
+  ogImage: string;
+}
+
 interface RightPanelProps {
-  page: any
+  page: Page
   fields: Record<string, string[]>
   visibleFields: string[]
   onDecision: (fieldType: string, value: string) => void
   onAddField: () => void
-  onClose: () => void
   toggleFieldVisibility: (fieldType: string) => void
-  width: number
   setWidth: (width: number) => void
-  pages: any[]
+  pages: Page[]
 }
 
 export function RightPanel({
@@ -25,9 +33,7 @@ export function RightPanel({
   visibleFields,
   onDecision,
   onAddField,
-  onClose,
   toggleFieldVisibility,
-  width,
   setWidth,
   pages
 }: RightPanelProps) {
