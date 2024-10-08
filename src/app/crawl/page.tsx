@@ -19,8 +19,8 @@ export default function CrawlScreen() {
 		setIsCrawling(true)
 		// Simulate a delay before redirecting
 		await new Promise(resolve => setTimeout(resolve, 1000))
-		// Redirect to the results page
-		router.push(`/crawl-results?domain=${encodeURIComponent(domain)}&scope=${scope}&limit=${limit}`)
+		// Redirect to the audit page
+		router.push(`/audit?domain=${encodeURIComponent(domain)}&scope=${scope}&limit=${limit}`)
 	}
 
 	return (
@@ -72,7 +72,7 @@ export default function CrawlScreen() {
 							</div>
 							
 							<Button onClick={handleCrawl} disabled={isCrawling || !domain} className="w-full">
-								{isCrawling ? "Redirecting..." : "Start Crawl"}
+								{isCrawling ? "Starting Crawl..." : "Start Crawl"}
 							</Button>
 						</div>
 					</CardContent>
