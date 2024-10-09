@@ -175,3 +175,37 @@ export default class Tree extends Component {
    ├── package.json                 # Project metadata and dependencies
    └── (other config files) 
 ```
+
+## Supabase details
+
+### Crawl Pages table
+```
+  public."Crawl-Pages" (
+    url text not null,
+    created_at timestamp with time zone not null default now(),
+    title text null,
+    content_type text null,
+    body text null,
+    custom_fields json null,
+    page_id uuid not null default gen_random_uuid (),
+    run_id text not null default gen_random_uuid (),
+    constraint Crawl - Pages_pkey primary key (page_id)
+  ) tablespace pg_default;
+
+```
+
+### Crawl Run table
+```
+  public."Crawl-Run" (
+    created_at timestamp with time zone not null default now(),
+    domain text null,
+    type text null,
+    max_page_count smallint null default '100'::smallint,
+    run_id text not null,
+    dataset_id text null,
+    status text null,
+    constraint Crawl - Run_pkey primary key (run_id),
+    constraint Crawl - Run_apify_key unique (run_id),
+    constraint Crawl - Run_dataset_id_key unique (dataset_id)
+  ) tablespace pg_default;
+  ```

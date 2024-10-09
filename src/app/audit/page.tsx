@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { supabase } from '@/lib/supabaseClient'
+import { supabase, getCrawlRunData, getPageData } from '@/lib/supabaseClient'
 
 const client = new ApifyClient({
   token: process.env.NEXT_PUBLIC_APIFY_TOKEN || '',
@@ -34,7 +34,6 @@ const mockSites = [
 
 export default function AuditPage() {
   const searchParams = useSearchParams()
-  const runId = searchParams?.get('runId')
   const [leftPanelWidth, setLeftPanelWidth] = useState(256)
   const [rightPanelWidth, setRightPanelWidth] = useState(480)
   const [pages, setPages] = useState<any[]>([])
@@ -59,6 +58,8 @@ export default function AuditPage() {
   const [crawlProgress, setCrawlProgress] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [isCrawlButtonDisabled, setIsCrawlButtonDisabled] = useState(false)
+  const [crawlRun, setCrawlRun] = useState(null)
+  const [pageData, setPageData] = useState([])
 
   const handleNewCrawl = () => {
     setShowNewCrawl(true)
@@ -93,19 +94,34 @@ export default function AuditPage() {
   }
 
   useEffect(() => {
-    if (!runId) {
-      console.log('No runId provided');
+    const fetchData = async () => {
+      const runId = searchParams?.get('runId')
+      const crawlRunId = searchParams?.get('crawlRunId')
+      if (crawlRunId) {
+        const crawlRunData = await getCrawlRunData(crawlRunId)
+        setCrawlRun(crawlRunData)
+        const pages = await getPageData(crawlRunId)
+        setPageData(pages)
+      }
+    }
+
+    fetchData()
+  }, [searchParams])
+
+  useEffect(() => {
+    if (!crawlRun) {
+      console.log('No crawlRun data');
       return;
     }
 
-    console.log('Current runId:', runId);
+    console.log('Current crawlRun:', crawlRun);
 
     const pollCrawlProgress = async () => {
       try {
         const { data: runData, error: runError } = await supabase
           .from('Crawl-Run')
           .select('*')
-          .eq('run_id', runId)
+          .eq('run_id', crawlRun.run_id)
           .single()
 
         if (runError) {
@@ -118,11 +134,11 @@ export default function AuditPage() {
           setCrawlStatus(runData.status)
           setCrawlProgress(runData.progress || 0)
           setTotalPages(runData.max_page_count || 0)
-          await fetchCrawledPages(runId) // Use runId instead of runData.id
+          await fetchCrawledPages(crawlRun.run_id) // Use crawlRun.run_id instead of runData.id
           setIsCrawlButtonDisabled(runData.status === 'RUNNING' || runData.status === 'READY')
           console.log('Crawl status:', runData.status, 'Progress:', runData.progress + '%')
         } else {
-          console.log('No run data found for runId:', runId);
+          console.log('No run data found for runId:', crawlRun.run_id);
         }
       } catch (err) {
         console.error('Error in pollCrawlProgress:', err)
@@ -133,7 +149,7 @@ export default function AuditPage() {
     const pollInterval = setInterval(pollCrawlProgress, 5000)
 
     return () => clearInterval(pollInterval)
-  }, [runId])
+  }, [crawlRun])
 
   const fetchCrawledPages = async (runId: string) => {
     try {

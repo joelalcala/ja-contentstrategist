@@ -1,9 +1,10 @@
 import { ApifyClient } from 'apify-client';
-import { supabase } from './supabaseClient';
+import { insertCrawlRun, updateCrawlRun, insertPageData, getCrawlRun } from './supabaseClient';
+import { prepareApifyInput } from './apifyInput';
 
 // Initialize the ApifyClient with your API token
 const client = new ApifyClient({
-  token: 'apify_api_2BdtIsD8YJeGNNGxlZR2BKz5vEOtfY1bEjWg',
+  token: process.env.NEXT_PUBLIC_APIFY_TOKEN || '',
 });
 
 // Keep track of ongoing crawls
@@ -17,13 +18,11 @@ export interface CrawlOptions {
 
 export interface CrawlResult {
   url: string;
-  title: string;
-  description: string;
-  type: string;
-  path: string;
-  ogMetadata: Record<string, string>;
-  jsonLd: any;
-  bodyContent: string;
+  pageTitle: string;
+  h1: string;
+  first_h2: string;
+  random_text_from_the_page: string;
+  processedRequestCount: number;
 }
 
 export async function runCrawl(options: CrawlOptions): Promise<CrawlResult[]> {
@@ -41,86 +40,19 @@ export async function runCrawl(options: CrawlOptions): Promise<CrawlResult[]> {
     let processedPages = 0;
 
     // Insert a new Crawl-Run record
-    const { data: crawlRun, error: insertError } = await supabase
-      .from('Crawl-Run')
-      .insert({
-        domain: url,
-        type: 'web-scraper',
-        pagecount: 0,
-        apify: 'pending'
-      })
-      .select()
-      .single();
+    const crawlRun = await insertCrawlRun({
+      run_id: '', // This will be set by Supabase
+      domain: url,
+      type: 'web-scraper',
+      max_page_count: maxPages,
+      status: 'running'
+    });
 
-    if (insertError) {
-      throw new Error(`Failed to insert Crawl-Run: ${insertError.message}`);
-    }
+    // Prepare the input for the Actor
+    const input = prepareApifyInput(url, maxPages.toString());
 
     // Run the Actor and wait for it to finish
-    const run = await client.actor("apify/web-scraper").call({
-      startUrls: [{ url }],
-      maxPagesPerCrawl: maxPages,
-      pageFunction: async ({ request, page, log }) => {
-        processedPages++;
-        const progress = (processedPages / maxPages) * 100;
-        log.info(`Scraping ${request.url} (${processedPages}/${maxPages})`);
-        onProgress?.(`Scraping ${request.url}`, progress);
-        
-        const title = await page.title();
-        const description = await page.$eval('meta[name="description"]', (el: Element) => (el as HTMLMetaElement).getAttribute('content')).catch(() => '');
-        
-        // Extract Open Graph metadata
-        const ogMetadata = await page.$$eval('meta[property^="og:"]', (els: Element[]) => 
-          els.reduce((acc: Record<string, string>, el) => {
-            const property = (el as HTMLMetaElement).getAttribute('property');
-            const content = (el as HTMLMetaElement).getAttribute('content');
-            if (property && content) {
-              acc[property] = content;
-            }
-            return acc;
-          }, {})
-        );
-
-        // Extract JSON-LD
-        const jsonLd = await page.evaluate(() => {
-          const el = document.querySelector('script[type="application/ld+json"]');
-          return el ? JSON.parse(el.textContent || '') : null;
-        });
-
-        // Use Readability to extract the main content
-        const bodyContent = await page.evaluate(() => {
-          return document.body.innerText;
-        });
-
-        // Determine the page type (you may want to implement a more sophisticated logic here)
-        const type = request.url === url ? 'landing' : 'article';
-
-        const pageData = {
-          url: request.url,
-          title,
-          description,
-          type,
-          path: new URL(request.url).pathname,
-          ogMetadata,
-          jsonLd,
-          bodyContent,
-        };
-
-        // Insert the page data into Supabase
-        const { error: pageInsertError } = await supabase
-          .from('Pages')
-          .insert({
-            crawl_run_id: crawlRun.id,
-            ...pageData
-          });
-
-        if (pageInsertError) {
-          console.error(`Failed to insert page data: ${pageInsertError.message}`);
-        }
-
-        return pageData;
-      },
-    });
+    const run = await client.actor("apify/web-scraper").call(input);
 
     onProgress?.("Crawl finished, fetching results...", 100)
 
@@ -128,22 +60,21 @@ export async function runCrawl(options: CrawlOptions): Promise<CrawlResult[]> {
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
     // Update the Crawl-Run record
-    const { error: updateError } = await supabase
-      .from('Crawl-Run')
-      .update({
-        pagecount: items.length,
-        apify: run.id
-      })
-      .eq('id', crawlRun.id);
+    await updateCrawlRun(crawlRun.run_id, items.length, 'completed');
 
-    if (updateError) {
-      console.error(`Failed to update Crawl-Run: ${updateError.message}`);
+    // Insert page data into Supabase
+    for (const item of items) {
+      await insertPageData(crawlRun.run_id, item as CrawlResult);
     }
 
     return items as CrawlResult[];
   } finally {
     ongoingCrawls.delete(url);
   }
+}
+
+export async function getCrawlProgress(runId: string) {
+  return getCrawlRun(runId);
 }
 
 export function isCrawlInProgress(url: string): boolean {
