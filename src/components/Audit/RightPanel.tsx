@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { DetailsTab } from "./RightPanelTabs/DetailsTab"
-import { PreviewTab } from "./RightPanelTabs/PreviewTab"
-import { SimilarPagesTab } from "./RightPanelTabs/SimilarPagesTab"
+import { Button } from "@/components/ui/button"
+import { ExternalLink } from "lucide-react"
 import { CommentsSection } from "./RightPanelSections/CommentsSection"
 
 export interface Page {
@@ -12,8 +11,9 @@ export interface Page {
   type: string;
   path: string;
   description: string;
+  metaDescription?: string;
   fields: Record<string, string>;
-  ogImage: string;
+  url: string;
 }
 
 interface RightPanelProps {
@@ -70,40 +70,32 @@ export function RightPanel({
     return null
   }
 
-  const similarPages = pages
-    .filter(p => p.id !== page.id && p.type === page.type)
-    .slice(0, 5)
-
   return (
     <div className="h-full flex flex-col">
-      <div className="flex justify-between items-center mb-2">
-        <SheetTitle className="text-lg">{page.title}</SheetTitle>
+      <div className="mt-6 mb-4">
+        <SheetTitle className="text-lg mb-2">{page.title}</SheetTitle>
+        <div className="flex justify-between items-center">
+          <SheetDescription className="text-sm flex-grow mr-2">
+            {page.metaDescription || page.description}
+          </SheetDescription>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(page.url, '_blank', 'noopener,noreferrer')}
+          >
+            Open Page <ExternalLink className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
       </div>
-      <SheetDescription className="mb-4 text-sm">{page.description}</SheetDescription>
       <div className="flex-1 overflow-auto">
-        <Tabs defaultValue="details">
-          <TabsList className="w-full">
-            <TabsTrigger value="details" className="flex-1 text-xs">Details</TabsTrigger>
-            <TabsTrigger value="preview" className="flex-1 text-xs">Preview</TabsTrigger>
-            <TabsTrigger value="similar" className="flex-1 text-xs">Similar Pages</TabsTrigger>
-          </TabsList>
-          <TabsContent value="details">
-            <DetailsTab
-              page={page}
-              fields={fields}
-              visibleFields={visibleFields}
-              onDecision={onDecision}
-              onAddField={onAddField}
-              toggleFieldVisibility={toggleFieldVisibility}
-            />
-          </TabsContent>
-          <TabsContent value="preview">
-            <PreviewTab page={page} />
-          </TabsContent>
-          <TabsContent value="similar">
-            <SimilarPagesTab similarPages={similarPages} />
-          </TabsContent>
-        </Tabs>
+        <DetailsTab
+          page={page}
+          fields={fields}
+          visibleFields={visibleFields}
+          onDecision={onDecision}
+          onAddField={onAddField}
+          toggleFieldVisibility={toggleFieldVisibility}
+        />
       </div>
       <CommentsSection />
       <div

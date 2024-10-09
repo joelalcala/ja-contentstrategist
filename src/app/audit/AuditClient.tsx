@@ -54,6 +54,8 @@ interface Page {
   path: string;
   type: string;
   fields: Record<string, any>;
+  description: string;
+  metaDescription: string;
   // Add any other relevant fields from your Apify dataset items
 }
 
@@ -100,6 +102,8 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
         title: item.pageTitle || item.title || 'No Title',
         path: item.url ? new URL(item.url).pathname : '/',
         type: 'page',
+        description: item.description || '',
+        metaDescription: item.metaDescription || '',
         fields: {},
         // Add any other relevant fields from your Apify dataset items
       }));
