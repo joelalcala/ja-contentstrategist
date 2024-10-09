@@ -12,7 +12,6 @@ import { Search, Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
-import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 const client = new ApifyClient({
@@ -54,8 +53,8 @@ export default function AuditPage() {
   const [activeView, setActiveView] = useState("default")
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [crawlStatus, setCrawlStatus] = useState('')
-  const [crawlProgress, setCrawlProgress] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
+  const [crawledPages, setCrawledPages] = useState(0)
+  const [maxPages, setMaxPages] = useState(0)
   const [isCrawlButtonDisabled, setIsCrawlButtonDisabled] = useState(false)
 
   const handleNewCrawl = () => {
@@ -96,26 +95,30 @@ export default function AuditPage() {
       if (runId) {
         try {
           const run = await client.run(runId).get()
-          const { items, total } = await client.dataset(run.defaultDatasetId).listItems()
-          console.log('Apify dataset:', items)
-          
-          const processedPages = items.map((item: any, index) => ({
-            id: index,
-            title: item.pageTitle || 'No Title',
-            type: 'page',
-            path: item.url ? new URL(item.url).pathname : '/',
-            description: item.h1 || '',
-            fields: {},
-            url: item.url || '',
-            ...item
-          }))
-          
-          setPages(processedPages)
-          setTotalPages(total)
-          setCrawlStatus(run.status)
-          setCrawlProgress(Math.round((run.finishedAt ? total : run.progressTotal) / total * 100))
+          if (run) {
+            const { items, total } = await client.dataset(run.defaultDatasetId).listItems()
+            console.log('Apify dataset:', items)
+            
+            const processedPages = items.map((item: any, index) => ({
+              id: index,
+              title: item.pageTitle || 'No Title',
+              type: 'page',
+              path: item.url ? new URL(item.url).pathname : '/',
+              description: item.h1 || '',
+              fields: {},
+              url: item.url || '',
+              ...item
+            }))
+            
+            setPages(processedPages)
+            setCrawledPages(total)
+            setMaxPages(run.stats?.pagesOutputted || total)
+            setCrawlStatus(run.status.toUpperCase())  // Ensure status is uppercase
+            setIsCrawlButtonDisabled(run.status === 'RUNNING' || run.status === 'READY')
+          }
         } catch (error) {
           console.error('Error fetching Apify data:', error)
+          setCrawlStatus('FAILED')  // Set status to FAILED if there's an error
         }
       }
     }
@@ -179,14 +182,6 @@ export default function AuditPage() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
-      <div className="bg-white p-4 border-b">
-        <h2 className="text-lg font-semibold mb-2">Crawl Progress</h2>
-        <div className="flex items-center space-x-4">
-          <Progress value={crawlProgress} className="w-64" />
-          <span>{crawlProgress.toFixed(2)}%</span>
-          <span>Status: {crawlStatus}</span>
-        </div>
-      </div>
       <div className="flex flex-1 overflow-hidden">
         <div style={{ width: `${leftPanelWidth}px` }} className="bg-white border-r flex-shrink-0">
           <LeftPanel
@@ -198,9 +193,9 @@ export default function AuditPage() {
             setSelectedPath={setSelectedPath}
             onNewCrawl={handleNewCrawl}
             onShowSiteSettings={() => setShowSiteSettings(true)}
-            crawlProgress={crawlProgress}
-            totalPages={totalPages}
-            isCrawling={crawlStatus === 'RUNNING'}
+            crawledPages={crawledPages}
+            maxPages={maxPages}
+            crawlStatus={crawlStatus}
             isCrawlButtonDisabled={isCrawlButtonDisabled}
           />
         </div>

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Settings, Plus } from "lucide-react"
 import { FileTree } from "./FileTree"
 import { buildFolderTree } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"  // Add this import
 
 interface LeftPanelProps {
   pages: Array<{ path: string }>
@@ -16,9 +17,9 @@ interface LeftPanelProps {
   setSelectedPath: (path: string) => void
   onNewCrawl: () => void
   onShowSiteSettings: () => void
-  crawlProgress: number
-  totalPages: number
-  isCrawling: boolean
+  crawledPages: number
+  maxPages: number
+  crawlStatus: string
   isCrawlButtonDisabled: boolean
 }
 
@@ -31,23 +32,45 @@ export function LeftPanel({
   setSelectedPath,
   onNewCrawl,
   onShowSiteSettings,
-  crawlProgress,
-  totalPages,
-  isCrawling,
-  isCrawlButtonDisabled
+  crawledPages,
+  maxPages,
+  crawlStatus,
+  isCrawlButtonDisabled,
 }: LeftPanelProps) {
-  const folderTree = buildFolderTree(pages)
+  const progress = maxPages > 0 ? (crawledPages / maxPages) * 100 : 100;
+  const folderTree = buildFolderTree(pages);
+
+  const getBadgeVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'running':
+        return 'default'
+      case 'succeeded':
+        return 'success'
+      case 'failed':
+        return 'destructive'
+      default:
+        return 'secondary'
+    }
+  }
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b">
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span>Progress: {crawlProgress.toFixed(2)}%</span>
-            <span>Pages: {pages.length} / {totalPages}</span>
-          </div>
-          <Progress value={crawlProgress} className="w-full h-1" />
+      <div className="p-4 border-t">
+        <h3 className="text-sm font-semibold mb-2">Crawl Progress</h3>
+        <Progress value={progress} className="mb-2" />
+        <div className="text-sm text-gray-600 mb-2">
+          {crawledPages} / {maxPages || crawledPages} pages
         </div>
+        <Badge variant={getBadgeVariant(crawlStatus)}>
+          Status: {crawlStatus}
+        </Badge>
+        <Button 
+          onClick={onNewCrawl} 
+          disabled={isCrawlButtonDisabled}
+          className="mt-2 w-full"
+        >
+          New Crawl
+        </Button>
       </div>
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
@@ -97,12 +120,6 @@ export function LeftPanel({
           </SelectContent>
         </Select>
       </div>
-      <button 
-        onClick={onNewCrawl} 
-        disabled={isCrawlButtonDisabled}
-      >
-        {isCrawling ? "Crawling..." : "Start New Crawl"}
-      </button>
     </div>
   )
 }
