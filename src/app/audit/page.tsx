@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { supabase, getCrawlRunData, getPageData } from '@/lib/supabaseClient'
 
 const client = new ApifyClient({
   token: process.env.NEXT_PUBLIC_APIFY_TOKEN || '',
@@ -58,8 +57,6 @@ export default function AuditPage() {
   const [crawlProgress, setCrawlProgress] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [isCrawlButtonDisabled, setIsCrawlButtonDisabled] = useState(false)
-  const [crawlRun, setCrawlRun] = useState(null)
-  const [pageData, setPageData] = useState([])
 
   const handleNewCrawl = () => {
     setShowNewCrawl(true)
@@ -96,97 +93,35 @@ export default function AuditPage() {
   useEffect(() => {
     const fetchData = async () => {
       const runId = searchParams?.get('runId')
-      const crawlRunId = searchParams?.get('crawlRunId')
-      if (crawlRunId) {
-        const crawlRunData = await getCrawlRunData(crawlRunId)
-        setCrawlRun(crawlRunData)
-        const pages = await getPageData(crawlRunId)
-        setPageData(pages)
+      if (runId) {
+        try {
+          const run = await client.run(runId).get()
+          const { items, total } = await client.dataset(run.defaultDatasetId).listItems()
+          console.log('Apify dataset:', items)
+          
+          const processedPages = items.map((item: any, index) => ({
+            id: index,
+            title: item.pageTitle || 'No Title',
+            type: 'page',
+            path: item.url ? new URL(item.url).pathname : '/',
+            description: item.h1 || '',
+            fields: {},
+            url: item.url || '',
+            ...item
+          }))
+          
+          setPages(processedPages)
+          setTotalPages(total)
+          setCrawlStatus(run.status)
+          setCrawlProgress(Math.round((run.finishedAt ? total : run.progressTotal) / total * 100))
+        } catch (error) {
+          console.error('Error fetching Apify data:', error)
+        }
       }
     }
 
     fetchData()
   }, [searchParams])
-
-  useEffect(() => {
-    if (!crawlRun) {
-      console.log('No crawlRun data');
-      return;
-    }
-
-    console.log('Current crawlRun:', crawlRun);
-
-    const pollCrawlProgress = async () => {
-      try {
-        const { data: runData, error: runError } = await supabase
-          .from('Crawl-Run')
-          .select('*')
-          .eq('run_id', crawlRun.run_id)
-          .single()
-
-        if (runError) {
-          console.error('Error fetching run data:', runError);
-          throw runError;
-        }
-
-        if (runData) {
-          console.log('Fetched run data:', runData);
-          setCrawlStatus(runData.status)
-          setCrawlProgress(runData.progress || 0)
-          setTotalPages(runData.max_page_count || 0)
-          await fetchCrawledPages(crawlRun.run_id) // Use crawlRun.run_id instead of runData.id
-          setIsCrawlButtonDisabled(runData.status === 'RUNNING' || runData.status === 'READY')
-          console.log('Crawl status:', runData.status, 'Progress:', runData.progress + '%')
-        } else {
-          console.log('No run data found for runId:', crawlRun.run_id);
-        }
-      } catch (err) {
-        console.error('Error in pollCrawlProgress:', err)
-      }
-    }
-
-    pollCrawlProgress()
-    const pollInterval = setInterval(pollCrawlProgress, 5000)
-
-    return () => clearInterval(pollInterval)
-  }, [crawlRun])
-
-  const fetchCrawledPages = async (runId: string) => {
-    try {
-      console.log('Fetching crawled pages for runId:', runId);
-      const { data, error } = await supabase
-        .from('Crawl-Pages')
-        .select('*')
-        .eq('run_id', runId)
-
-      if (error) {
-        console.error('Error fetching crawled pages:', error);
-        throw error;
-      }
-
-      console.log('Fetched crawled pages:', data);
-
-      if (data && data.length > 0) {
-        const crawledPages = data.map((item: any) => ({
-          id: item.id,
-          title: item.title || 'No Title',
-          type: item.type || 'page',
-          path: item.url ? new URL(item.url).pathname : '/',
-          description: item.custom_fields ? JSON.parse(item.custom_fields).h1 : '',
-          fields: item.fields || {},
-          url: item.url || '',
-          ...item
-        }))
-        console.log('Processed crawled pages:', crawledPages);
-        setPages(crawledPages)
-      } else {
-        console.log('No crawled pages found for runId:', runId);
-        setPages([])
-      }
-    } catch (err) {
-      console.error('Error in fetchCrawledPages:', err)
-    }
-  }
 
   const filteredPages = useMemo(() => {
     console.log('Filtering pages. Total pages:', pages.length);
