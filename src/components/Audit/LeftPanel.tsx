@@ -58,16 +58,6 @@ export function LeftPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-t">
-        <h3 className="text-sm font-semibold mb-2">Crawl Progress</h3>
-        <Progress value={progress} className="mb-2" />
-        <div className="text-sm text-gray-600 mb-2">
-          {crawledPages} / {maxPages || 'Unknown'} pages
-        </div>
-        <Badge variant={getBadgeVariant(crawlStatus)}>
-          Status: {crawlStatus}
-        </Badge>
-      </div>
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-4">
@@ -90,10 +80,18 @@ export function LeftPanel({
         </ScrollArea>
       </div>
       <div className="p-4 border-t">
-        <Button variant="outline" className="w-full text-xs" onClick={onShowSiteSettings}>
+        <Button variant="outline" className="w-full text-xs mb-4" onClick={onShowSiteSettings}>
           <Settings className="w-3 h-3 mr-2" />
           Site Settings
         </Button>
+        <h3 className="text-sm font-semibold mb-2">Crawl Progress</h3>
+        <Progress value={progress} className="mb-2" />
+        <div className="text-sm text-gray-600 mb-2">
+          {crawledPages} / {maxPages || 'Unknown'} pages
+        </div>
+        <Badge variant={getBadgeVariant(crawlStatus)}>
+          Status: {crawlStatus}
+        </Badge>
       </div>
     </div>
   )
