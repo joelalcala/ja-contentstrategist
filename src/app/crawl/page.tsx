@@ -32,8 +32,8 @@ export default function Crawl() {
 		setIsCrawling(true)
 
 		try {
-			const input = prepareApifyInput(domain, limit)
-			const run = await client.actor("moJRLRc85AitArpNN").call(input, { waitSecs: 0 })
+			const input = prepareApifyInput(domain, limit, scope)
+			const run = await client.actor("apify/web-scraper").call(input, { waitSecs: 0 })
 
 			const crawlRun = await insertCrawlRun({
 				run_id: run.id,
@@ -79,6 +79,7 @@ export default function Crawl() {
 										<SelectContent>
 											<SelectItem value="entire">Entire domain</SelectItem>
 											<SelectItem value="subdomain">Subdomain only</SelectItem>
+											<SelectItem value="all">All links</SelectItem>
 										</SelectContent>
 									</Select>
 								</div>

@@ -37,7 +37,7 @@ export function LeftPanel({
   crawlStatus,
   isCrawlButtonDisabled,
 }: LeftPanelProps) {
-  const progress = maxPages > 0 ? (crawledPages / maxPages) * 100 : 100;
+  const progress = maxPages > 0 ? Math.min((crawledPages / maxPages) * 100, 100) : 0;
   const folderTree = buildFolderTree(pages);
 
   const getBadgeVariant = (status: string) => {
@@ -59,7 +59,7 @@ export function LeftPanel({
         <h3 className="text-sm font-semibold mb-2">Crawl Progress</h3>
         <Progress value={progress} className="mb-2" />
         <div className="text-sm text-gray-600 mb-2">
-          {crawledPages} / {maxPages || crawledPages} pages
+          {crawledPages} / {maxPages || 'Unknown'} pages
         </div>
         <Badge variant={getBadgeVariant(crawlStatus)}>
           Status: {crawlStatus}
@@ -79,7 +79,6 @@ export function LeftPanel({
               tree={folderTree}
               selectedPath={selectedPath}
               setSelectedPath={setSelectedPath}
-              pages={pages}
             />
           </div>
         </ScrollArea>

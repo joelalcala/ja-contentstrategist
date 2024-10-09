@@ -22,7 +22,10 @@ export interface CrawlResult {
   h1: string;
   first_h2: string;
   random_text_from_the_page: string;
-  processedRequestCount: number;
+  metaDescription: string;
+  canonicalUrl: string;
+  ogMetadata: Record<string, string>;
+  jsonLd?: any;
 }
 
 export async function runCrawl(options: CrawlOptions): Promise<CrawlResult[]> {

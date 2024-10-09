@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { getCrawlRunData } from '../../lib/supabaseClient'
 
 const client = new ApifyClient({
   token: process.env.NEXT_PUBLIC_APIFY_TOKEN || '',
@@ -92,9 +93,11 @@ export default function AuditPage() {
   useEffect(() => {
     const fetchData = async () => {
       const runId = searchParams?.get('runId')
-      if (runId) {
+      const crawlRunId = searchParams?.get('crawlRunId')
+      if (runId && crawlRunId) {
         try {
           const run = await client.run(runId).get()
+          const crawlRun = await getCrawlRunData(crawlRunId) // Add this line
           if (run) {
             const { items, total } = await client.dataset(run.defaultDatasetId).listItems()
             console.log('Apify dataset:', items)
@@ -112,18 +115,25 @@ export default function AuditPage() {
             
             setPages(processedPages)
             setCrawledPages(total)
-            setMaxPages(run.stats?.pagesOutputted || total)
-            setCrawlStatus(run.status.toUpperCase())  // Ensure status is uppercase
+            // Use the max_page_count from the Crawl-Run record
+            setMaxPages(crawlRun.max_page_count || run.stats?.pagesOutputted || run.stats?.requestsFinished || total)
+            setCrawlStatus(run.status.toUpperCase())
             setIsCrawlButtonDisabled(run.status === 'RUNNING' || run.status === 'READY')
           }
         } catch (error) {
           console.error('Error fetching Apify data:', error)
-          setCrawlStatus('FAILED')  // Set status to FAILED if there's an error
+          setCrawlStatus('FAILED')
         }
       }
     }
 
     fetchData()
+
+    // Set up polling for updates
+    const intervalId = setInterval(fetchData, 5000) // Poll every 5 seconds
+
+    // Clean up the interval when the component unmounts
+    return () => clearInterval(intervalId)
   }, [searchParams])
 
   const filteredPages = useMemo(() => {
@@ -149,7 +159,7 @@ export default function AuditPage() {
         return values === page.fields?.[key];
       });
 
-      const matchesPath = selectedPath === "/" || (page.path?.startsWith(selectedPath) ?? false);
+      const matchesPath = selectedPath === "/" || page.path.startsWith(selectedPath);
 
       return matchesSearch && matchesActiveFilters && matchesPath;
     });

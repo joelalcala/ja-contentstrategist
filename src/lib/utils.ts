@@ -5,18 +5,51 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function buildFolderTree(pages: Array<{ path: string }>) {
-  const tree: Record<string, any> = { "/": {} }
+interface TreeNode {
+  name: string;
+  children: TreeNode[];
+  path: string;
+  count: number;
+  isFolder: boolean;
+}
+
+export function buildFolderTree(pages: Array<{ path: string }>): TreeNode {
+  const root: TreeNode = { name: 'Home', children: [], path: '/', count: 0, isFolder: true };
+  const pathCounts: { [key: string]: number } = {};
+
   pages.forEach(page => {
-    const parts = page.path.split('/').filter(Boolean)
-    let current = tree["/"]
+    const parts = page.path.split('/').filter(Boolean);
+    let currentNode = root;
+    let currentPath = '';
+
     parts.forEach((part, index) => {
-      if (index === parts.length - 1) return // Skip the last part (file name)
-      if (!current[part]) {
-        current[part] = {}
+      currentPath += '/' + part;
+      if (!pathCounts[currentPath]) {
+        pathCounts[currentPath] = 0;
       }
-      current = current[part]
-    })
-  })
-  return tree
+      pathCounts[currentPath]++;
+
+      if (index < parts.length - 1 || parts.length === 0) { // Only create folder nodes
+        let child = currentNode.children.find(c => c.name === part);
+        if (!child) {
+          child = { name: part, children: [], path: currentPath, count: 0, isFolder: true };
+          currentNode.children.push(child);
+        }
+        currentNode = child;
+      }
+    });
+  });
+
+  // Update counts for each node
+  function updateCounts(node: TreeNode): number {
+    node.count = pathCounts[node.path] || 0;
+    node.children.forEach(child => {
+      node.count += updateCounts(child);
+    });
+    return node.count;
+  }
+
+  updateCounts(root);
+
+  return root;
 }
