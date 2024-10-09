@@ -2,26 +2,15 @@ import React from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Settings, Plus, Layers } from "lucide-react"
+import { Settings, Layers } from "lucide-react"
 import { FileTree } from "./FileTree"
 import { buildFolderTree } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"  // Add this import
-
-interface Site {
-  id: number;
-  name: string;
-  domain: string;
-}
+import { Badge } from "@/components/ui/badge"
 
 interface LeftPanelProps {
   pages: Array<{ path: string }>
-  sites: Site[]
-  selectedSite: Site | null
-  setSelectedSite: (site: Site) => void
   selectedPath: string
   setSelectedPath: (path: string) => void
-  onNewCrawl: () => void
   onShowSiteSettings: () => void
   crawledPages: number
   maxPages: number
@@ -30,12 +19,8 @@ interface LeftPanelProps {
 
 export function LeftPanel({
   pages,
-  sites,
-  selectedSite,
-  setSelectedSite,
   selectedPath,
   setSelectedPath,
-  onNewCrawl,
   onShowSiteSettings,
   crawledPages,
   maxPages,
@@ -90,41 +75,11 @@ export function LeftPanel({
           </div>
         </ScrollArea>
       </div>
-      <div className="p-4 border-t space-y-4">
-        <Button variant="outline" className="w-full mb-2 text-xs" onClick={onShowSiteSettings}>
+      <div className="p-4 border-t">
+        <Button variant="outline" className="w-full text-xs" onClick={onShowSiteSettings}>
           <Settings className="w-3 h-3 mr-2" />
           Site Settings
         </Button>
-        <Select
-          value={selectedSite?.id.toString() || ""}
-          onValueChange={(value) => {
-            if (value === "new-crawl") {
-              onNewCrawl()
-            } else {
-              const site = sites.find(s => s.id.toString() === value)
-              if (site) {
-                setSelectedSite(site)
-              }
-            }
-          }}
-        >
-          <SelectTrigger className="w-full text-xs">
-            <SelectValue>{selectedSite?.domain || "Select a site"}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {sites.map((site) => (
-              <SelectItem key={site.id} value={site.id.toString()}>
-                {site.domain}
-              </SelectItem>
-            ))}
-            <SelectItem value="new-crawl">
-              <div className="flex items-center">
-                <Plus className="w-3 h-3 mr-2" />
-                Run New Crawl
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
       </div>
     </div>
   )
