@@ -8,14 +8,13 @@ import { RightPanel } from "@/components/audit/RightPanel"
 import { PageTable } from '@/components/audit/PageTable'
 import { AddFieldModal } from '@/components/audit/AddFieldModal'
 import { FiltersDialog } from '@/components/audit/FiltersDialog'
-import { ChevronDown, ChevronRight, Settings, Plus, X, Search, User, Folder, Home, FileIcon, Send, Eye, EyeOff, Filter, Settings as ConfigIcon, ArrowUpDown, ChevronsUpDown } from "lucide-react"
+import { Search, Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Progress } from "@/components/ui/progress"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { supabase } from '@/lib/supabaseClient'
 
 const client = new ApifyClient({
   token: process.env.NEXT_PUBLIC_APIFY_TOKEN || '',
@@ -35,7 +34,7 @@ const mockSites = [
 
 export default function AuditPage() {
   const searchParams = useSearchParams()
-  const runId = searchParams.get('runId')
+  const runId = searchParams?.get('runId')
   const [leftPanelWidth, setLeftPanelWidth] = useState(256)
   const [rightPanelWidth, setRightPanelWidth] = useState(480)
   const [pages, setPages] = useState<any[]>([])
@@ -53,10 +52,7 @@ export default function AuditPage() {
   const [selectedPath, setSelectedPath] = useState("/")
   const [showSiteSettings, setShowSiteSettings] = useState(false)
   const [showNewCrawl, setShowNewCrawl] = useState(false)
-  const [selectedRows, setSelectedRows] = useState(new Set())
-  const [bulkAction, setBulkAction] = useState("")
-  const [bulkFieldType, setBulkFieldType] = useState("")
-  const [bulkFieldValue, setBulkFieldValue] = useState("")
+  const [selectedRows, setSelectedRows] = useState(new Set<number>())
   const [activeView, setActiveView] = useState("default")
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [crawlStatus, setCrawlStatus] = useState('')
@@ -92,48 +88,120 @@ export default function AuditPage() {
     setIsRightPanelOpen(true)
   }
 
-  const handleBulkAction = () => {
-    if (bulkAction === "set" && bulkFieldType && bulkFieldValue) {
-      setPages(pages.map(page =>
-        selectedRows.has(page.id) ? { ...page, fields: { ...page.fields, [bulkFieldType]: bulkFieldValue } } : page
-      ))
-    } else if (bulkAction === "clear" && bulkFieldType) {
-      setPages(pages.map(page =>
-        selectedRows.has(page.id) ? { ...page, fields: { ...page.fields, [bulkFieldType]: undefined } } : page
-      ))
-    }
-    setSelectedRows(new Set())
-    setBulkAction("")
-    setBulkFieldType("")
-    setBulkFieldValue("")
-  }
-
   const startResizing = () => {
     setIsResizing(true)
   }
 
+  useEffect(() => {
+    if (!runId) {
+      console.log('No runId provided');
+      return;
+    }
+
+    console.log('Current runId:', runId);
+
+    const pollCrawlProgress = async () => {
+      try {
+        const { data: runData, error: runError } = await supabase
+          .from('Crawl-Run')
+          .select('*')
+          .eq('run_id', runId)
+          .single()
+
+        if (runError) {
+          console.error('Error fetching run data:', runError);
+          throw runError;
+        }
+
+        if (runData) {
+          console.log('Fetched run data:', runData);
+          setCrawlStatus(runData.status)
+          setCrawlProgress(runData.progress || 0)
+          setTotalPages(runData.max_page_count || 0)
+          await fetchCrawledPages(runId) // Use runId instead of runData.id
+          setIsCrawlButtonDisabled(runData.status === 'RUNNING' || runData.status === 'READY')
+          console.log('Crawl status:', runData.status, 'Progress:', runData.progress + '%')
+        } else {
+          console.log('No run data found for runId:', runId);
+        }
+      } catch (err) {
+        console.error('Error in pollCrawlProgress:', err)
+      }
+    }
+
+    pollCrawlProgress()
+    const pollInterval = setInterval(pollCrawlProgress, 5000)
+
+    return () => clearInterval(pollInterval)
+  }, [runId])
+
+  const fetchCrawledPages = async (runId: string) => {
+    try {
+      console.log('Fetching crawled pages for runId:', runId);
+      const { data, error } = await supabase
+        .from('Crawl-Pages')
+        .select('*')
+        .eq('run_id', runId)
+
+      if (error) {
+        console.error('Error fetching crawled pages:', error);
+        throw error;
+      }
+
+      console.log('Fetched crawled pages:', data);
+
+      if (data && data.length > 0) {
+        const crawledPages = data.map((item: any) => ({
+          id: item.id,
+          title: item.title || 'No Title',
+          type: item.type || 'page',
+          path: item.url ? new URL(item.url).pathname : '/',
+          description: item.custom_fields ? JSON.parse(item.custom_fields).h1 : '',
+          fields: item.fields || {},
+          url: item.url || '',
+          ...item
+        }))
+        console.log('Processed crawled pages:', crawledPages);
+        setPages(crawledPages)
+      } else {
+        console.log('No crawled pages found for runId:', runId);
+        setPages([])
+      }
+    } catch (err) {
+      console.error('Error in fetchCrawledPages:', err)
+    }
+  }
+
   const filteredPages = useMemo(() => {
-    return pages.filter(page => {
+    console.log('Filtering pages. Total pages:', pages.length);
+    console.log('Search query:', searchQuery);
+    console.log('Active filters:', activeFilters);
+    console.log('Selected path:', selectedPath);
+
+    const filtered = pages.filter(page => {
       const matchesSearch = 
-        page.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        page.path.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        page.type.toLowerCase().includes(searchQuery.toLowerCase())
+        (page.title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+        (page.path?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+        (page.type?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
       const matchesActiveFilters = Object.entries(activeFilters).every(([key, values]) => {
-        if (!values || values === "all") return true
+        if (!values || values === "all") return true;
         if (key === 'type') {
-          return values === page.type
+          return values === page.type;
         }
         if (key === 'urlContains') {
-          return page.path.includes(values)
+          return page.path?.includes(values) ?? false;
         }
-        return values === page.fields[key]
-      })
+        return values === page.fields?.[key];
+      });
 
-      const matchesPath = selectedPath === "/" || page.path.startsWith(selectedPath)
+      const matchesPath = selectedPath === "/" || (page.path?.startsWith(selectedPath) ?? false);
 
-      return matchesSearch && matchesActiveFilters && matchesPath
-    })
+      return matchesSearch && matchesActiveFilters && matchesPath;
+    });
+
+    console.log('Filtered pages:', filtered);
+    return filtered;
   }, [pages, searchQuery, activeFilters, selectedPath])
 
   useEffect(() => {
@@ -157,54 +225,6 @@ export default function AuditPage() {
       document.removeEventListener('mouseup', handleMouseUp)
     }
   }, [isResizing])
-
-  useEffect(() => {
-    if (!runId) return
-
-    const pollCrawlProgress = async () => {
-      try {
-        const runInfo = await client.run(runId).get()
-        if (runInfo) {
-          setCrawlStatus(runInfo.status)
-          if (runInfo.status === 'RUNNING' && runInfo.progress) {
-            setCrawlProgress(runInfo.progress.percent * 100)
-            setTotalPages(runInfo.progress.totalPages || 0)
-            await fetchCrawledPages(runId)
-          } else if (runInfo.status === 'SUCCEEDED') {
-            setCrawlProgress(100)
-            await fetchCrawledPages(runId)
-          }
-          setIsCrawlButtonDisabled(runInfo.status === 'RUNNING' || runInfo.status === 'READY')
-          console.log('Crawl status:', runInfo.status, 'Progress:', crawlProgress.toFixed(2) + '%')
-        }
-      } catch (err) {
-        console.error('Error fetching run info:', err)
-      }
-    }
-
-    pollCrawlProgress()
-    const pollInterval = setInterval(pollCrawlProgress, 5000)
-
-    return () => clearInterval(pollInterval)
-  }, [runId])
-
-  const fetchCrawledPages = async (runId: string) => {
-    try {
-      const { items } = await client.dataset(runId).listItems()
-      const crawledPages = items.map((item: any) => ({
-        id: item.url,
-        title: item.pageTitle,
-        type: 'page',
-        path: new URL(item.url).pathname,
-        description: item.h1,
-        fields: {},
-        ...item
-      }))
-      setPages(prevPages => [...prevPages, ...crawledPages])
-    } catch (err) {
-      console.error('Error fetching crawled pages:', err)
-    }
-  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -262,17 +282,7 @@ export default function AuditPage() {
                   Filters
                 </Button>
               </div>
-              {selectedRows.size > 0 && (
-                <div className="flex items-center space-x-2">
-                  {/* Bulk action UI components */}
-                </div>
-              )}
             </div>
-            {Object.entries(activeFilters).some(([_, values]) => values && values !== "all") && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {/* Active filters display */}
-              </div>
-            )}
             <PageTable
               data={filteredPages}
               onDecision={handleDecision}

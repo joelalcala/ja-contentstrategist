@@ -22,7 +22,7 @@ export default function Crawl() {
 	const [error, setError] = useState<string | null>(null)
 	const [domain, setDomain] = useState("")
 	const [scope, setScope] = useState("entire")
-	const [limit, setLimit] = useState("50")
+	const [limit, setLimit] = useState("10")  // Changed default to "10"
 	const router = useRouter()
 
 	const handleCrawl = async () => {
@@ -77,7 +77,7 @@ export default function Crawl() {
 			console.log('Starting Apify actor run with input:', input)
 
 			// Start the actor run without waiting for it to finish
-			const run = await client.actor("moJRLRc85AitArpNN").call(input, { waitSecs: 0 }
+			const run = await client.actor("moJRLRc85AitArpNN").call(input, { waitSecs: 0 })
 
 			console.log('Apify actor run started with ID:', run.id)
 
@@ -131,6 +131,7 @@ export default function Crawl() {
 										<SelectValue placeholder="Select a limit" />
 									</SelectTrigger>
 									<SelectContent>
+										<SelectItem value="10">10 pages</SelectItem>
 										<SelectItem value="50">50 pages</SelectItem>
 										<SelectItem value="100">100 pages</SelectItem>
 										<SelectItem value="500">500 pages</SelectItem>
