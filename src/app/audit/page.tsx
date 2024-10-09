@@ -1,8 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from "react"
-import { useSearchParams } from "next/navigation"
-import { ApifyClient } from 'apify-client'
+import { useSearchParams, useRouter } from "next/navigation"
 import { LeftPanel } from "@/components/audit/LeftPanel"
 import { RightPanel } from "@/components/audit/RightPanel"
 import { PageTable } from '@/components/audit/PageTable'
@@ -13,11 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { getCrawlRunData } from '../../lib/supabaseClient'
-
-const client = new ApifyClient({
-  token: process.env.NEXT_PUBLIC_APIFY_TOKEN || '',
-})
+import { getCrawlRunWithPages, getCrawlRuns, updateCrawlRunStatus } from '../../lib/supabaseClient'
 
 // Initial fields
 const initialFields = {
@@ -31,8 +26,20 @@ const mockSites = [
   { id: 3, name: "Support", domain: "support.example.com" },
 ]
 
+// Add this function to de-slug and format the path
+function formatPath(path: string): string {
+  if (path === 'all') return 'All';
+  if (path === '/') return '';
+  return path
+    .split('/')
+    .filter(Boolean)
+    .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' '))
+    .join(' / ');
+}
+
 export default function AuditPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [leftPanelWidth, setLeftPanelWidth] = useState(256)
   const [rightPanelWidth, setRightPanelWidth] = useState(480)
   const [pages, setPages] = useState<any[]>([])
@@ -57,9 +64,12 @@ export default function AuditPage() {
   const [crawledPages, setCrawledPages] = useState(0)
   const [maxPages, setMaxPages] = useState(0)
   const [isCrawlButtonDisabled, setIsCrawlButtonDisabled] = useState(false)
+  const [domain, setDomain] = useState("")
+  const [crawlRuns, setCrawlRuns] = useState<CrawlRun[]>([])
+  const [selectedCrawlRun, setSelectedCrawlRun] = useState<CrawlRun | null>(null)
 
   const handleNewCrawl = () => {
-    setShowNewCrawl(true)
+    router.push('/crawl')
   }
 
   const handleDecision = (id: number, fieldType: string, value: string) => {
@@ -93,47 +103,57 @@ export default function AuditPage() {
   useEffect(() => {
     const fetchData = async () => {
       const runId = searchParams?.get('runId')
-      const crawlRunId = searchParams?.get('crawlRunId')
-      if (runId && crawlRunId) {
+      if (runId) {
         try {
-          const run = await client.run(runId).get()
-          const crawlRun = await getCrawlRunData(crawlRunId) // Add this line
-          if (run) {
-            const { items, total } = await client.dataset(run.defaultDatasetId).listItems()
-            console.log('Apify dataset:', items)
-            
-            const processedPages = items.map((item: any, index) => ({
+          const { crawlRun, pages } = await getCrawlRunWithPages(runId)
+          const allCrawlRuns = await getCrawlRuns()
+          setCrawlRuns(allCrawlRuns)
+          
+          if (crawlRun) {
+            const processedPages = pages.map((item: any, index) => ({
               id: index,
-              title: item.pageTitle || 'No Title',
+              title: item.title || 'No Title',
               type: 'page',
               path: item.url ? new URL(item.url).pathname : '/',
-              description: item.h1 || '',
+              description: item.custom_fields?.h1 || '',
               fields: {},
               url: item.url || '',
               ...item
             }))
             
             setPages(processedPages)
-            setCrawledPages(total)
-            // Use the max_page_count from the Crawl-Run record
-            setMaxPages(crawlRun.max_page_count || run.stats?.pagesOutputted || run.stats?.requestsFinished || total)
-            setCrawlStatus(run.status.toUpperCase())
-            setIsCrawlButtonDisabled(run.status === 'RUNNING' || run.status === 'READY')
+            setCrawledPages(pages.length)
+            setMaxPages(crawlRun.max_page_count)
+            setCrawlStatus(crawlRun.status.toUpperCase())
+            setIsCrawlButtonDisabled(crawlRun.status === 'RUNNING' || crawlRun.status === 'READY')
+            setDomain(crawlRun.domain)
+            setSelectedCrawlRun(crawlRun)
+
+            // If the crawl is still running, set up polling to check for updates
+            if (crawlRun.status === 'RUNNING') {
+              const intervalId = setInterval(async () => {
+                const updatedCrawlRun = await getCrawlRunWithPages(runId)
+                if (updatedCrawlRun.crawlRun.status !== 'RUNNING') {
+                  clearInterval(intervalId)
+                  setCrawlStatus(updatedCrawlRun.crawlRun.status.toUpperCase())
+                  setIsCrawlButtonDisabled(false)
+                  setPages(updatedCrawlRun.pages)
+                  setCrawledPages(updatedCrawlRun.pages.length)
+                }
+              }, 5000) // Poll every 5 seconds
+
+              return () => clearInterval(intervalId)
+            }
           }
         } catch (error) {
-          console.error('Error fetching Apify data:', error)
+          console.error('Error fetching crawl data:', error)
           setCrawlStatus('FAILED')
+          await updateCrawlRunStatus(runId, 'FAILED')
         }
       }
     }
 
     fetchData()
-
-    // Set up polling for updates
-    const intervalId = setInterval(fetchData, 5000) // Poll every 5 seconds
-
-    // Clean up the interval when the component unmounts
-    return () => clearInterval(intervalId)
   }, [searchParams])
 
   const filteredPages = useMemo(() => {
@@ -159,7 +179,7 @@ export default function AuditPage() {
         return values === page.fields?.[key];
       });
 
-      const matchesPath = selectedPath === "/" || page.path.startsWith(selectedPath);
+      const matchesPath = selectedPath === "all" || selectedPath === "/" || page.path.startsWith(selectedPath);
 
       return matchesSearch && matchesActiveFilters && matchesPath;
     });
@@ -196,9 +216,9 @@ export default function AuditPage() {
         <div style={{ width: `${leftPanelWidth}px` }} className="bg-white border-r flex-shrink-0">
           <LeftPanel
             pages={pages}
-            sites={mockSites}
-            selectedSite={selectedSite}
-            setSelectedSite={setSelectedSite}
+            crawlRuns={crawlRuns}
+            selectedCrawlRun={selectedCrawlRun}
+            setSelectedCrawlRun={setSelectedCrawlRun}
             selectedPath={selectedPath}
             setSelectedPath={setSelectedPath}
             onNewCrawl={handleNewCrawl}
@@ -206,7 +226,6 @@ export default function AuditPage() {
             crawledPages={crawledPages}
             maxPages={maxPages}
             crawlStatus={crawlStatus}
-            isCrawlButtonDisabled={isCrawlButtonDisabled}
           />
         </div>
         <div
@@ -217,6 +236,9 @@ export default function AuditPage() {
         <main className="flex-1 flex overflow-hidden">
           <div className="flex-1 p-4 overflow-auto">
             <div className="space-y-2 mb-4">
+              <h2 className="text-2xl font-bold">
+                {domain}{selectedPath !== '/' && ` / ${formatPath(selectedPath)}`}
+              </h2>
               <div className="flex items-center space-x-2">
                 <div className="relative w-48">
                   <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-3 w-3" />
@@ -253,7 +275,7 @@ export default function AuditPage() {
               setSelectedRows={setSelectedRows}
               activeView={activeView}
               setActiveView={setActiveView}
-              domain={selectedSite.domain}
+              domain={domain}
             />
           </div>
         </main>

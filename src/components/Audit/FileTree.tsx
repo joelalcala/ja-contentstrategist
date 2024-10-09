@@ -51,7 +51,7 @@ export function FileTree({ tree, selectedPath, setSelectedPath }: FileTreeProps)
           ) : (
             <Folder className="w-4 h-4 mr-1" />
           )}
-          <span className="flex-grow">{node.name}</span>
+          <span className="flex-grow text-sm">{node.name}</span>
           <span className="text-sm text-gray-500">({node.count})</span>
         </div>
         {isExpanded && node.children.length > 0 && (
@@ -63,5 +63,5 @@ export function FileTree({ tree, selectedPath, setSelectedPath }: FileTreeProps)
     );
   };
 
-  return <div className="text-sm">{renderNode(tree)}</div>;
+  return <div>{renderNode(tree)}</div>;
 }

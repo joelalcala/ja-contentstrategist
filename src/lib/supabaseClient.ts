@@ -135,3 +135,44 @@ export async function getPageData(run_id: string) {
 
   return data
 }
+
+export async function getCrawlRuns(): Promise<CrawlRun[]> {
+  const { data, error } = await supabase
+    .from('Crawl-Run')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}
+
+export async function getCrawlRunWithPages(run_id: string): Promise<{ crawlRun: CrawlRun, pages: any[] }> {
+  const { data: crawlRun, error: crawlRunError } = await supabase
+    .from('Crawl-Run')
+    .select('*')
+    .eq('run_id', run_id)
+    .single();
+
+  if (crawlRunError) throw crawlRunError;
+
+  const { data: pages, error: pagesError } = await supabase
+    .from('Crawl-Pages')
+    .select('*')
+    .eq('run_id', run_id);
+
+  if (pagesError) throw pagesError;
+
+  return { crawlRun, pages };
+}
+
+export async function updateCrawlRunStatus(run_id: string, status: string) {
+  const { error } = await supabase
+    .from('Crawl-Run')
+    .update({ status })
+    .eq('run_id', run_id);
+
+  if (error) throw error;
+}

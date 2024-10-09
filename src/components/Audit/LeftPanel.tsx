@@ -3,16 +3,22 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Settings, Plus } from "lucide-react"
+import { Settings, Plus, Layers } from "lucide-react"
 import { FileTree } from "./FileTree"
 import { buildFolderTree } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"  // Add this import
 
+interface Site {
+  id: number;
+  name: string;
+  domain: string;
+}
+
 interface LeftPanelProps {
   pages: Array<{ path: string }>
-  sites: Array<{ id: number; name: string; domain: string }>
-  selectedSite: { id: number; name: string; domain: string }
-  setSelectedSite: (site: { id: number; name: string; domain: string }) => void
+  sites: Site[]
+  selectedSite: Site | null
+  setSelectedSite: (site: Site) => void
   selectedPath: string
   setSelectedPath: (path: string) => void
   onNewCrawl: () => void
@@ -20,7 +26,6 @@ interface LeftPanelProps {
   crawledPages: number
   maxPages: number
   crawlStatus: string
-  isCrawlButtonDisabled: boolean
 }
 
 export function LeftPanel({
@@ -35,7 +40,6 @@ export function LeftPanel({
   crawledPages,
   maxPages,
   crawlStatus,
-  isCrawlButtonDisabled,
 }: LeftPanelProps) {
   const progress = maxPages > 0 ? Math.min((crawledPages / maxPages) * 100, 100) : 0;
   const folderTree = buildFolderTree(pages);
@@ -64,17 +68,20 @@ export function LeftPanel({
         <Badge variant={getBadgeVariant(crawlStatus)}>
           Status: {crawlStatus}
         </Badge>
-        <Button 
-          onClick={onNewCrawl} 
-          disabled={isCrawlButtonDisabled}
-          className="mt-2 w-full"
-        >
-          New Crawl
-        </Button>
       </div>
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-4">
+            <div
+              className={`flex items-center py-1 px-2 cursor-pointer hover:bg-gray-100 mb-2 ${
+                selectedPath === 'all' ? 'bg-blue-100' : ''
+              }`}
+              onClick={() => setSelectedPath('all')}
+            >
+              <Layers className="w-4 h-4 mr-2" />
+              <span className="flex-grow text-sm">All pages</span>
+              <span className="text-sm text-gray-500">({pages.length})</span>
+            </div>
             <FileTree
               tree={folderTree}
               selectedPath={selectedPath}
@@ -89,7 +96,7 @@ export function LeftPanel({
           Site Settings
         </Button>
         <Select
-          value={selectedSite.id.toString()}
+          value={selectedSite?.id.toString() || ""}
           onValueChange={(value) => {
             if (value === "new-crawl") {
               onNewCrawl()
@@ -102,7 +109,7 @@ export function LeftPanel({
           }}
         >
           <SelectTrigger className="w-full text-xs">
-            <SelectValue>{selectedSite.domain}</SelectValue>
+            <SelectValue>{selectedSite?.domain || "Select a site"}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {sites.map((site) => (
@@ -110,7 +117,7 @@ export function LeftPanel({
                 {site.domain}
               </SelectItem>
             ))}
-            <SelectItem value="new-crawl" className="text-primary font-medium" disabled={isCrawlButtonDisabled}>
+            <SelectItem value="new-crawl">
               <div className="flex items-center">
                 <Plus className="w-3 h-3 mr-2" />
                 Run New Crawl
