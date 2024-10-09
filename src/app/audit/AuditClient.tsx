@@ -7,13 +7,17 @@ import { RightPanel } from "@/components/audit/RightPanel"
 import { PageTable } from '@/components/audit/PageTable'
 import { AddFieldModal } from '@/components/audit/AddFieldModal'
 import { FiltersDialog } from '@/components/audit/FiltersDialog'
-import { Search, Filter } from "lucide-react"
+import { Search, Filter, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { updateCrawlRunStatus, getCrawlRunWithPages } from '@/lib/supabaseClient'
-import { CrawlRun, Page } from '@/lib/supabaseClient'
+import { Skeleton } from "@/components/ui/skeleton"
+import { ApifyClient } from 'apify-client'
+
+const apifyClient = new ApifyClient({
+  token: process.env.NEXT_PUBLIC_APIFY_API_TOKEN,
+});
 
 const initialFields = {
   Status: ["Needs review", "Keep as is", "Rewrite", "Merge", "Delete"],
@@ -29,22 +33,40 @@ function formatPath(path: string): string {
     .join(' / ');
 }
 
-interface AuditClientProps {
-  initialCrawlRun: CrawlRun | null
-  initialPages: Page[]
-  initialCrawlRuns: CrawlRun[]
+interface CrawlRun {
+  id: string;
+  status: string;
+  startedAt: string;
+  finishedAt: string;
+  actorTaskId: string;
+  buildId: string;
+  exitCode: number;
+  defaultDatasetId: string;
+  defaultKeyValueStoreId: string;
+  defaultRequestQueueId: string;
+  // Add any other relevant fields from Apify's run object
 }
 
-export default function AuditClient({ initialCrawlRun, initialPages, initialCrawlRuns }: AuditClientProps) {
-  console.log('AuditClient received initialCrawlRun:', initialCrawlRun)
-  console.log('AuditClient received initialPages:', initialPages)
-  console.log('AuditClient received initialCrawlRuns:', initialCrawlRuns)
+interface Page {
+  id: string;
+  url: string;
+  title: string;
+  path: string;
+  type: string;
+  fields: Record<string, any>;
+  // Add any other relevant fields from your Apify dataset items
+}
 
+interface AuditClientProps {
+  initialRunId: string;
+}
+
+export default function AuditClient({ initialRunId }: AuditClientProps) {
   const router = useRouter()
   const [leftPanelWidth, setLeftPanelWidth] = useState(256)
   const [rightPanelWidth, setRightPanelWidth] = useState(480)
-  const [pages, setPages] = useState(initialPages)
-  const [selectedPage, setSelectedPage] = useState(null)
+  const [pages, setPages] = useState<Page[]>([])
+  const [selectedPage, setSelectedPage] = useState<Page | null>(null)
   const [fields, setFields] = useState(initialFields)
   const [visibleColumns, setVisibleColumns] = useState(["title", "path", "type"])
   const [visibleFields, setVisibleFields] = useState(Object.keys(initialFields))
@@ -57,22 +79,48 @@ export default function AuditClient({ initialCrawlRun, initialPages, initialCraw
   const [selectedPath, setSelectedPath] = useState("/")
   const [showSiteSettings, setShowSiteSettings] = useState(false)
   const [showNewCrawl, setShowNewCrawl] = useState(false)
-  const [selectedRows, setSelectedRows] = useState(new Set<number>())
+  const [selectedRows, setSelectedRows] = useState(new Set<string>())
   const [activeView, setActiveView] = useState("default")
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
-  const [crawlStatus, setCrawlStatus] = useState(initialCrawlRun?.status || '')
-  const [crawledPages, setCrawledPages] = useState(initialPages.length)
-  const [maxPages, setMaxPages] = useState(initialCrawlRun?.max_page_count || 0)
-  const [isCrawlButtonDisabled, setIsCrawlButtonDisabled] = useState(false)
-  const [domain, setDomain] = useState(initialCrawlRun?.domain || "")
-  const [crawlRuns, setCrawlRuns] = useState(initialCrawlRuns)
-  const [selectedCrawlRun, setSelectedCrawlRun] = useState(initialCrawlRun)
+  const [crawlRun, setCrawlRun] = useState<CrawlRun | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  const fetchCrawlRunData = async (runId: string) => {
+    setIsRefreshing(true);
+    setIsLoading(true);
+    try {
+      const run = await apifyClient.run(runId).get();
+      setCrawlRun(run);
+
+      const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+      const processedPages = items.map((item: any, index) => ({
+        id: index.toString(),
+        url: item.url,
+        title: item.pageTitle || item.title || 'No Title',
+        path: item.url ? new URL(item.url).pathname : '/',
+        type: 'page',
+        fields: {},
+        // Add any other relevant fields from your Apify dataset items
+      }));
+      setPages(processedPages);
+    } catch (error) {
+      console.error('Error fetching crawl run data:', error);
+    } finally {
+      setIsRefreshing(false);
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCrawlRunData(initialRunId);
+  }, [initialRunId]);
 
   const handleNewCrawl = () => {
     router.push('/crawl')
   }
 
-  const handleDecision = (id: number, fieldType: string, value: string) => {
+  const handleDecision = (id: string, fieldType: string, value: string) => {
     setPages(pages.map(page =>
       page.id === id ? { ...page, fields: { ...page.fields, [fieldType]: value } } : page
     ))
@@ -91,7 +139,7 @@ export default function AuditClient({ initialCrawlRun, initialPages, initialCraw
     )
   }
 
-  const handleSelectPage = (page: any) => {
+  const handleSelectPage = (page: Page) => {
     setSelectedPage(page)
     setIsRightPanelOpen(true)
   }
@@ -99,23 +147,6 @@ export default function AuditClient({ initialCrawlRun, initialPages, initialCraw
   const startResizing = () => {
     setIsResizing(true)
   }
-
-  useEffect(() => {
-    if (initialCrawlRun?.status === 'RUNNING') {
-      const intervalId = setInterval(async () => {
-        const updatedCrawlRun = await getCrawlRunWithPages(initialCrawlRun.id)
-        if (updatedCrawlRun.crawlRun.status !== 'RUNNING') {
-          clearInterval(intervalId)
-          setCrawlStatus(updatedCrawlRun.crawlRun.status.toUpperCase())
-          setIsCrawlButtonDisabled(false)
-          setPages(updatedCrawlRun.pages)
-          setCrawledPages(updatedCrawlRun.pages.length)
-        }
-      }, 5000) // Poll every 5 seconds
-
-      return () => clearInterval(intervalId)
-    }
-  }, [initialCrawlRun])
 
   const filteredPages = useMemo(() => {
     return pages.filter(page => {
@@ -163,23 +194,50 @@ export default function AuditClient({ initialCrawlRun, initialPages, initialCraw
     }
   }, [isResizing])
 
+  const TableLoadingSkeleton = () => (
+    <div className="space-y-4">
+      <div className="flex space-x-4">
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-1/4" />
+        <Skeleton className="h-8 w-1/4" />
+        <Skeleton className="h-8 w-1/4" />
+        <Skeleton className="h-8 w-1/4" />
+      </div>
+      {[...Array(10)].map((_, index) => (
+        <div key={index} className="flex space-x-4">
+          <Skeleton className="h-6 w-6" />
+          <Skeleton className="h-6 w-1/4" />
+          <Skeleton className="h-6 w-1/4" />
+          <Skeleton className="h-6 w-1/4" />
+          <Skeleton className="h-6 w-1/4" />
+        </div>
+      ))}
+    </div>
+  )
+
   return (
     <div className="flex flex-col h-screen bg-gray-100">
       <div className="flex flex-1 overflow-hidden">
         <div style={{ width: `${leftPanelWidth}px` }} className="bg-white border-r flex-shrink-0">
-          <LeftPanel
-            pages={pages}
-            crawlRuns={crawlRuns}
-            selectedCrawlRun={selectedCrawlRun}
-            setSelectedCrawlRun={setSelectedCrawlRun}
-            selectedPath={selectedPath}
-            setSelectedPath={setSelectedPath}
-            onNewCrawl={handleNewCrawl}
-            onShowSiteSettings={() => setShowSiteSettings(true)}
-            crawledPages={crawledPages}
-            maxPages={maxPages}
-            crawlStatus={crawlStatus}
-          />
+          {isLoading ? (
+            <div className="p-4">
+              <Skeleton className="h-4 w-3/4 mb-2" />
+              <Skeleton className="h-4 w-1/2 mb-2" />
+              <Skeleton className="h-4 w-2/3 mb-2" />
+              <Skeleton className="h-4 w-1/2 mb-2" />
+            </div>
+          ) : (
+            <LeftPanel
+              pages={pages}
+              selectedPath={selectedPath}
+              setSelectedPath={setSelectedPath}
+              onNewCrawl={handleNewCrawl}
+              onShowSiteSettings={() => setShowSiteSettings(true)}
+              crawledPages={pages.length}
+              maxPages={crawlRun?.defaultDatasetId ? pages.length : 0}
+              crawlStatus={crawlRun?.status || ''}
+            />
+          )}
         </div>
         <div
           ref={leftResizeRef}
@@ -189,9 +247,25 @@ export default function AuditClient({ initialCrawlRun, initialPages, initialCraw
         <main className="flex-1 flex overflow-hidden">
           <div className="flex-1 p-4 overflow-auto">
             <div className="space-y-2 mb-4">
-              <h2 className="text-2xl font-bold">
-                {domain}{selectedPath !== '/' && ` / ${formatPath(selectedPath)}`}
-              </h2>
+              <div className="flex justify-between items-center">
+                {isLoading ? (
+                  <Skeleton className="h-8 w-1/3" />
+                ) : (
+                  <h2 className="text-2xl font-bold">
+                    {crawlRun?.actorTaskId}{selectedPath !== '/' && ` / ${formatPath(selectedPath)}`}
+                  </h2>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchCrawlRunData(initialRunId)}
+                  disabled={isRefreshing}
+                  className="h-7 text-xs"
+                >
+                  <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Refresh Status
+                </Button>
+              </div>
               <div className="flex items-center space-x-2">
                 <div className="relative w-48">
                   <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-3 w-3" />
@@ -214,22 +288,26 @@ export default function AuditClient({ initialCrawlRun, initialPages, initialCraw
                 </Button>
               </div>
             </div>
-            <PageTable
-              data={filteredPages}
-              onDecision={handleDecision}
-              fields={fields}
-              visibleColumns={visibleColumns}
-              setVisibleColumns={setVisibleColumns}
-              visibleFields={visibleFields}
-              toggleFieldVisibility={toggleFieldVisibility}
-              onSelectPage={handleSelectPage}
-              selectedPage={selectedPage}
-              selectedRows={selectedRows}
-              setSelectedRows={setSelectedRows}
-              activeView={activeView}
-              setActiveView={setActiveView}
-              domain={domain}
-            />
+            {isLoading ? (
+              <TableLoadingSkeleton />
+            ) : (
+              <PageTable
+                data={filteredPages}
+                onDecision={handleDecision}
+                fields={fields}
+                visibleColumns={visibleColumns}
+                setVisibleColumns={setVisibleColumns}
+                visibleFields={visibleFields}
+                toggleFieldVisibility={toggleFieldVisibility}
+                onSelectPage={handleSelectPage}
+                selectedPage={selectedPage}
+                selectedRows={selectedRows}
+                setSelectedRows={setSelectedRows}
+                activeView={activeView}
+                setActiveView={setActiveView}
+                domain={crawlRun?.actorTaskId || ''}
+              />
+            )}
           </div>
         </main>
       </div>
