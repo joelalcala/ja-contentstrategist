@@ -7,8 +7,19 @@ import { FileTree } from "./FileTree"
 import { buildFolderTree } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 
+interface CrawlRun {
+  id: string
+  domain: string
+  status: string
+  crawled_pages: number
+  max_page_count: number
+}
+
 interface LeftPanelProps {
   pages: Array<{ path: string }>
+  crawlRuns: CrawlRun[]
+  selectedCrawlRun: CrawlRun | null
+  setSelectedCrawlRun: (crawlRun: CrawlRun | null) => void
   selectedPath: string
   setSelectedPath: (path: string) => void
   onShowSiteSettings: () => void
@@ -19,6 +30,9 @@ interface LeftPanelProps {
 
 export function LeftPanel({
   pages,
+  crawlRuns,
+  selectedCrawlRun,
+  setSelectedCrawlRun,
   selectedPath,
   setSelectedPath,
   onShowSiteSettings,
@@ -29,16 +43,16 @@ export function LeftPanel({
   const progress = maxPages > 0 ? Math.min((crawledPages / maxPages) * 100, 100) : 0;
   const folderTree = buildFolderTree(pages);
 
-  const getBadgeVariant = (status: string) => {
+  const getBadgeVariant = (status: string): "default" | "destructive" | "secondary" | "outline" => {
     switch (status.toLowerCase()) {
       case 'running':
         return 'default'
       case 'succeeded':
-        return 'success'
+        return 'secondary'
       case 'failed':
         return 'destructive'
       default:
-        return 'secondary'
+        return 'outline'
     }
   }
 

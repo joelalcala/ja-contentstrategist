@@ -149,21 +149,32 @@ export async function getCrawlRuns(): Promise<CrawlRun[]> {
   return data
 }
 
-export async function getCrawlRunWithPages(run_id: string): Promise<{ crawlRun: CrawlRun, pages: any[] }> {
+export async function getCrawlRunWithPages(runId: string): Promise<{ crawlRun: CrawlRun, pages: Page[] }> {
+  console.log('Fetching crawl run with runId:', runId)
   const { data: crawlRun, error: crawlRunError } = await supabase
     .from('Crawl-Run')
     .select('*')
-    .eq('run_id', run_id)
+    .eq('run_id', runId)
     .single();
 
-  if (crawlRunError) throw crawlRunError;
+  if (crawlRunError) {
+    console.error('Error fetching crawl run:', crawlRunError)
+    throw crawlRunError;
+  }
+
+  console.log('Fetched crawl run:', crawlRun)
 
   const { data: pages, error: pagesError } = await supabase
     .from('Crawl-Pages')
     .select('*')
-    .eq('run_id', run_id);
+    .eq('run_id', runId);
 
-  if (pagesError) throw pagesError;
+  if (pagesError) {
+    console.error('Error fetching pages:', pagesError)
+    throw pagesError;
+  }
+
+  console.log('Fetched pages:', pages)
 
   return { crawlRun, pages };
 }
@@ -175,4 +186,19 @@ export async function updateCrawlRunStatus(run_id: string, status: string) {
     .eq('run_id', run_id);
 
   if (error) throw error;
+}
+
+export async function getApifyDatasetId(runId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('Crawl-Run')
+    .select('dataset_id')
+    .eq('run_id', runId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching Apify dataset ID:', error);
+    return null;
+  }
+
+  return data?.dataset_id || null;
 }
