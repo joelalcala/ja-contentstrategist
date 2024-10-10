@@ -4,15 +4,12 @@ import React, { useState, useRef, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { LeftPanel } from "@/components/audit/LeftPanel"
-import { RightPanel } from "@/components/audit/RightPanel"
 import { PageTable } from '@/components/audit/PageTable'
 import { AddFieldModal } from '@/components/audit/AddFieldModal'
 import { FiltersDialog } from '@/components/audit/FiltersDialog'
-import { Search, Filter, RefreshCw, File, PlusCircle, MoreHorizontal, ListFilter } from "lucide-react"
+import { Search, Filter, RefreshCw, File, ChevronLeft, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ApifyClient } from 'apify-client'
 import {
@@ -184,7 +181,7 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
 
   const handleSelectPage = (page: Page) => {
     setSelectedPage(page)
-    setIsRightPanelOpen(true)
+    router.push(`/audit/${initialRunId}/page/${encodeURIComponent(page.url)}`)
   }
 
   const startResizing = () => {
@@ -339,7 +336,7 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" className="h-8 gap-1">
-                        <ListFilter className="h-3.5 w-3.5" />
+                        <Filter className="h-3.5 w-3.5" />
                         <span className="sr-only sm:not-sr-only">Filter</span>
                       </Button>
                     </DropdownMenuTrigger>
@@ -398,24 +395,6 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
           </div>
         </main>
       </div>
-      <Sheet open={isRightPanelOpen} onOpenChange={setIsRightPanelOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-xl" style={{ maxWidth: `${rightPanelWidth}px` }}>
-          {selectedPage && (
-            <RightPanel
-              page={selectedPage}
-              fields={fields}
-              visibleFields={visibleFields}
-              onDecision={(fieldType, value) => handleDecision(selectedPage.id, fieldType, value)}
-              onAddField={() => setIsAddFieldOpen(true)}
-              onClose={() => setIsRightPanelOpen(false)}
-              toggleFieldVisibility={toggleFieldVisibility}
-              width={rightPanelWidth}
-              setWidth={setRightPanelWidth}
-              pages={pages}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
       <AddFieldModal
         isOpen={isAddFieldOpen}
         onClose={() => setIsAddFieldOpen(false)}
