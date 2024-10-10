@@ -2,18 +2,50 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { LeftPanel } from "@/components/audit/LeftPanel"
 import { RightPanel } from "@/components/audit/RightPanel"
 import { PageTable } from '@/components/audit/PageTable'
 import { AddFieldModal } from '@/components/audit/AddFieldModal'
 import { FiltersDialog } from '@/components/audit/FiltersDialog'
-import { Search, Filter, RefreshCw } from "lucide-react"
+import { Search, Filter, RefreshCw, File, PlusCircle, MoreHorizontal, ListFilter } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ApifyClient } from 'apify-client'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 
 const apifyClient = new ApifyClient({
   token: process.env.NEXT_PUBLIC_APIFY_API_TOKEN,
@@ -44,7 +76,6 @@ interface CrawlRun {
   defaultDatasetId: string;
   defaultKeyValueStoreId: string;
   defaultRequestQueueId: string;
-  // Add any other relevant fields from Apify's run object
 }
 
 interface Page {
@@ -56,7 +87,6 @@ interface Page {
   fields: Record<string, any>;
   description: string;
   metaDescription: string;
-  // Add any other relevant fields from your Apify dataset items
 }
 
 interface AuditClientProps {
@@ -87,29 +117,38 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
   const [crawlRun, setCrawlRun] = useState<CrawlRun | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [pageTypes, setPageTypes] = useState(['page', 'article', 'event', 'contact'])
 
   const fetchCrawlRunData = async (runId: string) => {
     setIsRefreshing(true);
     setIsLoading(true);
     try {
       const run = await apifyClient.run(runId).get();
+      console.log('Fetched run:', run); // Log the run object for debugging
       setCrawlRun(run);
 
+      if (!run || !run.defaultDatasetId) {
+        console.error('Run or defaultDatasetId is undefined:', run);
+        throw new Error('Invalid run data');
+      }
+
       const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+      console.log('Fetched items:', items); // Log the items for debugging
       const processedPages = items.map((item: any, index) => ({
         id: index.toString(),
-        url: item.url,
+        url: item.url || '',
         title: item.pageTitle || item.title || 'No Title',
         path: item.url ? new URL(item.url).pathname : '/',
         type: 'page',
         description: item.description || '',
         metaDescription: item.metaDescription || '',
         fields: {},
-        // Add any other relevant fields from your Apify dataset items
       }));
       setPages(processedPages);
     } catch (error) {
       console.error('Error fetching crawl run data:', error);
+      setPages([]); // Set pages to an empty array in case of error
+      setCrawlRun(null); // Reset crawlRun in case of error
     } finally {
       setIsRefreshing(false);
       setIsLoading(false);
@@ -219,8 +258,14 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
     </div>
   )
 
+  const formatTitle = (path: string): string => {
+    const pageType = selectedPath === 'all' ? 'Pages' : 'Pages';
+    if (path === 'all' || path === '/') return pageType;
+    return `${pageType} / ${formatPath(path)}`;
+  }
+
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
+    <div className="flex flex-col h-screen bg-muted/40">
       <div className="flex flex-1 overflow-hidden">
         <div style={{ width: `${leftPanelWidth}px` }} className="bg-white border-r flex-shrink-0">
           {isLoading ? (
@@ -248,70 +293,112 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
           className="w-1 bg-gray-200 hover:bg-gray-300 cursor-col-resize"
           onMouseDown={startResizing}
         />
-        <main className="flex-1 flex overflow-hidden">
-          <div className="flex-1 p-4 overflow-auto">
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between items-center">
-                {isLoading ? (
-                  <Skeleton className="h-8 w-1/3" />
-                ) : (
-                  <h2 className="text-2xl font-bold">
-                    {crawlRun?.actorTaskId}{selectedPath !== '/' && ` / ${formatPath(selectedPath)}`}
-                  </h2>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchCrawlRunData(initialRunId)}
-                  disabled={isRefreshing}
-                  className="h-7 text-xs"
-                >
-                  <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  Refresh Status
-                </Button>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="relative w-48">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-3 w-3" />
-                  <Input
-                    type="text"
-                    placeholder="Search pages..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 pr-4 py-1 w-full h-7 text-xs"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsFiltersOpen(true)}
-                  className="h-7 text-xs"
-                >
-                  <Filter className="w-3 h-3 mr-1" />
-                  Filters
-                </Button>
-              </div>
-            </div>
-            {isLoading ? (
-              <TableLoadingSkeleton />
-            ) : (
-              <PageTable
-                data={filteredPages}
-                onDecision={handleDecision}
-                fields={fields}
-                visibleColumns={visibleColumns}
-                setVisibleColumns={setVisibleColumns}
-                visibleFields={visibleFields}
-                toggleFieldVisibility={toggleFieldVisibility}
-                onSelectPage={handleSelectPage}
-                selectedPage={selectedPage}
-                selectedRows={selectedRows}
-                setSelectedRows={setSelectedRows}
-                activeView={activeView}
-                setActiveView={setActiveView}
-                domain={crawlRun?.actorTaskId || ''}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link href="/">Dashboard</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link href="/audit">Audit</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{crawlRun?.actorTaskId || 'Current Audit'}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+            <div className="relative ml-auto flex-1 md:grow-0">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px]"
               />
-            )}
+            </div>
+          </header>
+          <div className="flex-1 overflow-auto p-4 sm:px-6">
+            <Tabs defaultValue="page" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <TabsList>
+                  {pageTypes.map((type) => (
+                    <TabsTrigger key={type} value={type} className="capitalize">
+                      {type}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                <div className="ml-auto flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 gap-1">
+                        <ListFilter className="h-3.5 w-3.5" />
+                        <span className="sr-only sm:not-sr-only">Filter</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuCheckboxItem checked>Active</DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem>Draft</DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem>Archived</DropdownMenuCheckboxItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button size="sm" variant="outline" className="h-8 gap-1">
+                    <File className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only">Export</span>
+                  </Button>
+                  <Button size="sm" className="h-8 gap-1">
+                    <PlusCircle className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only">Add Page</span>
+                  </Button>
+                </div>
+              </div>
+              {pageTypes.map((type) => (
+                <TabsContent key={type} value={type}>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{formatTitle(selectedPath)}</CardTitle>
+                      <CardDescription>Manage your {type}s and view their content.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoading ? (
+                        <TableLoadingSkeleton />
+                      ) : (
+                        <PageTable
+                          data={filteredPages.filter(page => page.type === type)}
+                          onDecision={handleDecision}
+                          fields={fields}
+                          visibleColumns={visibleColumns}
+                          setVisibleColumns={setVisibleColumns}
+                          visibleFields={visibleFields}
+                          toggleFieldVisibility={toggleFieldVisibility}
+                          onSelectPage={handleSelectPage}
+                          selectedPage={selectedPage}
+                          selectedRows={selectedRows}
+                          setSelectedRows={setSelectedRows}
+                          activeView={activeView}
+                          setActiveView={setActiveView}
+                          domain={crawlRun?.actorTaskId || ''}
+                        />
+                      )}
+                    </CardContent>
+                    <CardFooter>
+                      <div className="text-xs text-muted-foreground">
+                        Showing <strong>1-{filteredPages.filter(page => page.type === type).length}</strong> of <strong>{pages.filter(page => page.type === type).length}</strong> {type}s
+                      </div>
+                    </CardFooter>
+                  </Card>
+                </TabsContent>
+              ))}
+            </Tabs>
           </div>
         </main>
       </div>
