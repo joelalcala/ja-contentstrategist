@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Package2, Home, ShoppingCart, Package, Users2, LineChart, Settings } from "lucide-react";
+import { Package2, Home, Bot, LayoutList, FolderTree, Waypoints, Settings } from "lucide-react";
 
 export function Sidebar() {
   return (
@@ -13,10 +13,10 @@ export function Sidebar() {
           <span className="sr-only">Content Strategist</span>
         </Link>
         <NavItem href="/dashboard" icon={Home} label="Dashboard" />
-        <NavItem href="/crawl" icon={ShoppingCart} label="Crawl" />
-        <NavItem href="/audit" icon={Package} label="Audit" />
-        <NavItem href="/sitemap" icon={Users2} label="Sitemap" />
-        <NavItem href="/taxonomy" icon={LineChart} label="Taxonomy" />
+        <NavItem href="/crawl" icon={Bot} label="Crawl" />
+        <NavItem href="/audit" icon={LayoutList} label="Audit" />
+        <NavItem href="/sitemap" icon={FolderTree} label="Sitemap" />
+        <NavItem href="/taxonomy" icon={Waypoints} label="Taxonomy" />
       </nav>
       <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
         <NavItem href="/settings" icon={Settings} label="Settings" />

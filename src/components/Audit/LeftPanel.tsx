@@ -1,8 +1,7 @@
 import React from "react"
-import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Settings, Layers } from "lucide-react"
+import { Layers } from "lucide-react"
 import { FileTree } from "./FileTree"
 import { buildFolderTree } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +21,6 @@ interface LeftPanelProps {
   setSelectedCrawlRun: (crawlRun: CrawlRun | null) => void
   selectedPath: string
   setSelectedPath: (path: string) => void
-  onShowSiteSettings: () => void
   crawledPages: number
   maxPages: number
   crawlStatus: string
@@ -35,7 +33,6 @@ export function LeftPanel({
   setSelectedCrawlRun,
   selectedPath,
   setSelectedPath,
-  onShowSiteSettings,
   crawledPages,
   maxPages,
   crawlStatus,
@@ -80,10 +77,6 @@ export function LeftPanel({
         </ScrollArea>
       </div>
       <div className="p-4 border-t">
-        <Button variant="outline" className="w-full text-xs mb-4" onClick={onShowSiteSettings}>
-          <Settings className="w-3 h-3 mr-2" />
-          Site Settings
-        </Button>
         <h3 className="text-sm font-semibold mb-2">Crawl Progress</h3>
         <Progress value={progress} className="mb-2" />
         <div className="text-sm text-gray-600 mb-2">
