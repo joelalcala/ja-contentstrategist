@@ -66,7 +66,7 @@ export function LeftPanel({
             >
               <Layers className="w-4 h-4 mr-2" />
               <span className="flex-grow text-sm">All pages</span>
-              <span className="text-sm text-gray-500">({pages.length})</span>
+              <Badge variant="secondary" className="ml-2">{pages.length}</Badge>
             </div>
             <FileTree
               tree={folderTree}

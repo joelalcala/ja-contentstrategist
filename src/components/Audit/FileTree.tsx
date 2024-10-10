@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronDown, ChevronRight, Folder, Home } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
 
 interface TreeNode {
   name: string;
@@ -52,7 +53,7 @@ export function FileTree({ tree, selectedPath, setSelectedPath }: FileTreeProps)
             <Folder className="w-4 h-4 mr-1" />
           )}
           <span className="flex-grow text-sm">{node.name}</span>
-          <span className="text-sm text-gray-500">({node.count})</span>
+          <Badge variant="secondary" className="ml-2">{node.count}</Badge>
         </div>
         {isExpanded && node.children.length > 0 && (
           <div className="ml-4">
