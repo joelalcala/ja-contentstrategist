@@ -7,7 +7,7 @@ import { LeftPanel } from "@/components/audit/LeftPanel"
 import { PageTable } from '@/components/audit/PageTable'
 import { AddFieldModal } from '@/components/audit/AddFieldModal'
 import { FiltersDialog } from '@/components/audit/FiltersDialog'
-import { Search, Filter, RefreshCw, File, ChevronLeft, ExternalLink } from "lucide-react"
+import { Search, Filter, RefreshCw, File, ChevronLeft, ExternalLink, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -115,6 +115,7 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [pageTypes, setPageTypes] = useState(['page', 'article', 'event', 'contact'])
+  const [isNavigating, setIsNavigating] = useState(false)
 
   const fetchCrawlRunData = async (runId: string) => {
     setIsRefreshing(true);
@@ -180,7 +181,7 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
   }
 
   const handleSelectPage = (page: Page) => {
-    setSelectedPage(page)
+    setIsNavigating(true)
     router.push(`/audit/${initialRunId}/page/${encodeURIComponent(page.url)}`)
   }
 
@@ -263,6 +264,11 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
 
   return (
     <div className="flex flex-col h-screen bg-muted/40">
+      {isNavigating && (
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      )}
       <div className="flex flex-1 overflow-hidden">
         <div style={{ width: `${leftPanelWidth}px` }} className="bg-white border-r flex-shrink-0">
           {isLoading ? (
@@ -379,7 +385,7 @@ export default function AuditClient({ initialRunId }: AuditClientProps) {
                           setSelectedRows={setSelectedRows}
                           activeView={activeView}
                           setActiveView={setActiveView}
-                          domain={crawlRun?.actorTaskId || ''}
+                          domain={initialRunId}
                         />
                       )}
                     </CardContent>

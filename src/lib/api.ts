@@ -13,7 +13,7 @@ export async function getPageDetails(runId: string, pageId: string) {
 
     const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
     
-    // Assuming pageId is actually the URL of the page
+    // Assuming pageId is actually the encoded URL of the page
     const page = items.find((item: any) => item.url === decodeURIComponent(pageId));
 
     if (!page) {
