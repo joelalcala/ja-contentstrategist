@@ -23,7 +23,7 @@ export function FileTree({ tree, selectedPath, setSelectedPath }: FileTreeProps)
     setExpanded(prev => ({ ...prev, [path]: !prev[path] }));
   };
 
-  const renderNode = (node: TreeNode) => {
+  const renderNode = (node: TreeNode, level: number = 0) => {
     const isExpanded = expanded[node.path];
     const isSelected = selectedPath === node.path;
 
@@ -33,6 +33,7 @@ export function FileTree({ tree, selectedPath, setSelectedPath }: FileTreeProps)
           className={`flex items-center py-1 px-2 cursor-pointer hover:bg-gray-100 ${
             isSelected ? 'bg-blue-100' : ''
           }`}
+          style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={() => {
             setSelectedPath(node.path);
             if (node.children.length > 0) {
@@ -42,27 +43,29 @@ export function FileTree({ tree, selectedPath, setSelectedPath }: FileTreeProps)
         >
           {node.children.length > 0 ? (
             isExpanded ? (
-              <ChevronDown className="w-4 h-4 mr-1" />
+              <ChevronDown className="w-4 h-4 mr-1 flex-shrink-0" />
             ) : (
-              <ChevronRight className="w-4 h-4 mr-1" />
+              <ChevronRight className="w-4 h-4 mr-1 flex-shrink-0" />
             )
-          ) : null}
-          {node.path === '/' ? (
-            <Home className="w-4 h-4 mr-1" />
           ) : (
-            <Folder className="w-4 h-4 mr-1" />
+            <div className="w-4 h-4 mr-1 flex-shrink-0" /> // Placeholder for alignment
           )}
-          <span className="flex-grow text-sm">{node.name}</span>
-          <Badge variant="secondary" className="ml-2">{node.count}</Badge>
+          {node.path === '/' ? (
+            <Home className="w-4 h-4 mr-2 flex-shrink-0" />
+          ) : (
+            <Folder className="w-4 h-4 mr-2 flex-shrink-0" />
+          )}
+          <span className="flex-grow text-sm truncate">{node.name}</span>
+          <Badge variant="secondary" className="ml-2 flex-shrink-0">{node.count}</Badge>
         </div>
         {isExpanded && node.children.length > 0 && (
           <div className="ml-4">
-            {node.children.map(child => renderNode(child))}
+            {node.children.map(child => renderNode(child, level + 1))}
           </div>
         )}
       </div>
     );
   };
 
-  return <div>{renderNode(tree)}</div>;
+  return <div className="overflow-auto max-h-[calc(100vh-200px)]">{renderNode(tree)}</div>;
 }

@@ -28,11 +28,11 @@ interface LeftPanelProps {
 
 export function LeftPanel({
   pages,
+  selectedPath,
+  setSelectedPath,
   crawlRuns,
   selectedCrawlRun,
   setSelectedCrawlRun,
-  selectedPath,
-  setSelectedPath,
   crawledPages,
   maxPages,
   crawlStatus,
