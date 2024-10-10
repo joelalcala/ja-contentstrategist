@@ -5,9 +5,6 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import { ChevronLeft, ExternalLink } from "lucide-react"
 import { getPageDetails } from '@/lib/api'
@@ -84,20 +81,20 @@ export default function PageDetails({ params }: { params: { runId: string, pageI
           <CardContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="title">Title</Label>
-                <Input id="title" value={page.title} readOnly />
+                <h3 className="font-semibold">Title</h3>
+                <p className="text-sm text-gray-600">{page.title}</p>
               </div>
               <div>
-                <Label htmlFor="url">URL</Label>
-                <Input id="url" value={page.url} readOnly />
+                <h3 className="font-semibold">URL</h3>
+                <p className="text-sm text-gray-600 break-all">{page.url}</p>
               </div>
               <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea id="description" value={page.description} readOnly />
+                <h3 className="font-semibold">Description</h3>
+                <p className="text-sm text-gray-600">{page.description || 'No description available'}</p>
               </div>
               <div>
-                <Label htmlFor="metaDescription">Meta Description</Label>
-                <Textarea id="metaDescription" value={page.metaDescription} readOnly />
+                <h3 className="font-semibold">Meta Description</h3>
+                <p className="text-sm text-gray-600">{page.metaDescription || 'No meta description available'}</p>
               </div>
             </div>
           </CardContent>
@@ -112,8 +109,8 @@ export default function PageDetails({ params }: { params: { runId: string, pageI
             <div className="space-y-4">
               {Object.entries(page.fields).map(([key, value]) => (
                 <div key={key}>
-                  <Label htmlFor={key}>{key}</Label>
-                  <Input id={key} value={value as string} readOnly />
+                  <h3 className="font-semibold">{key}</h3>
+                  <p className="text-sm text-gray-600">{value as string}</p>
                 </div>
               ))}
             </div>
