@@ -1,6 +1,22 @@
 import { EnqueueStrategy } from 'crawlee';
 
-export function prepareApifyInput(domain: string, limit: string, scope: string) {
+export interface ApifyInput {
+  startUrls: { url: string }[];
+  keepUrlFragments: boolean;
+  linkSelector: string;
+  maxRequestsPerCrawl?: number;
+  maxConcurrency: number;
+  pageLoadTimeoutSecs: number;
+  proxyConfiguration: { useApifyProxy: boolean };
+  debugLog: boolean;
+  ignoreSslErrors: boolean;
+  useChrome: boolean;
+  additionalMimeTypes: string[];
+  globs: string[];
+  pageFunction: string;
+}
+
+export function prepareApifyInput(domain: string, limit: string, scope: string): ApifyInput {
   const url = new URL(domain);
 
   let glob: string;
@@ -29,9 +45,15 @@ export function prepareApifyInput(domain: string, limit: string, scope: string) 
     ignoreSslErrors: false,
     useChrome: false,
     additionalMimeTypes: [],
-    globs: [glob], // Use globs instead of pseudoUrls
-    pageFunction: `async function pageFunction({ request, log, $ }) {
+    globs: [glob],
+    pageFunction: `async function pageFunction({ request, log, $, context }) {
       log.info(\`Processing \${request.url}...\`);
+      
+      // Enqueue all links from the page
+      await context.enqueueLinks({
+        globs: ['${glob}'],
+        selector: 'a[href]',
+      });
       
       const pageData = {
         url: request.url,

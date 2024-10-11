@@ -28,7 +28,8 @@ export default function Crawl() {
 				scope: scope,
 			})
 
-			router.push(`/audit?runId=${runId}`)
+			// Update the redirect to use the correct URL structure
+			router.push(`/audit/${encodeURIComponent(domain)}/${runId}`)
 		} catch (err: any) {
 			setError('Failed to start crawl: ' + err.message)
 		} finally {

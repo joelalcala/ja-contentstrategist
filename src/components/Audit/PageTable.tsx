@@ -47,8 +47,8 @@ export function PageTable({
   const router = useRouter()
 
   const handleRowClick = (page: any) => {
-    router.push(`/audit/${domain}/page/${encodeURIComponent(page.url)}`)
-  }
+    onSelectPage(page);
+  };
 
   const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>, id: string) => {
     event.stopPropagation()

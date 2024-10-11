@@ -1,4 +1,5 @@
 import React from "react"
+import { Page } from "@/lib/types"; // Make sure to create this type in a separate file
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Layers } from "lucide-react"
@@ -15,27 +16,25 @@ interface CrawlRun {
 }
 
 interface LeftPanelProps {
-  pages: Array<{ path: string }>
-  crawlRuns: CrawlRun[]
-  selectedCrawlRun: CrawlRun | null
-  setSelectedCrawlRun: (crawlRun: CrawlRun | null) => void
-  selectedPath: string
-  setSelectedPath: (path: string) => void
-  crawledPages: number
-  maxPages: number
-  crawlStatus: string
+  pages: Page[];
+  selectedPath: string;
+  setSelectedPath: (path: string) => void;
+  onNewCrawl: () => void;
+  onShowSiteSettings: () => void;
+  crawledPages: number;
+  maxPages: number;
+  crawlStatus: string;
 }
 
 export function LeftPanel({
   pages,
   selectedPath,
   setSelectedPath,
-  crawlRuns,
-  selectedCrawlRun,
-  setSelectedCrawlRun,
+  onNewCrawl,
+  onShowSiteSettings,
   crawledPages,
   maxPages,
-  crawlStatus,
+  crawlStatus
 }: LeftPanelProps) {
   const progress = maxPages > 0 ? Math.min((crawledPages / maxPages) * 100, 100) : 0;
   const folderTree = buildFolderTree(pages);
