@@ -7,17 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ApifyClient } from 'apify-client'
-import { insertCrawlRun } from '../../lib/supabaseClient'
-import { prepareApifyInput } from '../../lib/apifyInput';
-
-const client = new ApifyClient({
-	token: process.env.NEXT_PUBLIC_APIFY_TOKEN || '',
-})
-
-if (!process.env.NEXT_PUBLIC_APIFY_TOKEN) {
-	console.error('NEXT_PUBLIC_APIFY_TOKEN is not set')
-}
+import { runCrawl } from '../../lib/apifyClient'
 
 export default function Crawl() {
 	const [isCrawling, setIsCrawling] = useState(false)
@@ -32,18 +22,13 @@ export default function Crawl() {
 		setIsCrawling(true)
 
 		try {
-			const input = prepareApifyInput(domain, limit, scope)
-			const run = await client.actor("apify/web-scraper").call(input, { waitSecs: 0 })
-
-			const crawlRun = await insertCrawlRun({
-				run_id: run.id,
-				domain,
-				type: 'web-scraper',
-				max_page_count: limit === "Entire site" ? 0 : parseInt(limit),
-				status: 'running'
+			const runId = await runCrawl({
+				url: domain,
+				maxPages: limit === "Entire site" ? 0 : parseInt(limit),
+				scope: scope,
 			})
 
-			router.push(`/audit?runId=${run.id}&crawlRunId=${crawlRun.run_id}`)
+			router.push(`/audit?runId=${runId}`)
 		} catch (err: any) {
 			setError('Failed to start crawl: ' + err.message)
 		} finally {

@@ -13,7 +13,7 @@ const ongoingCrawls = new Set<string>();
 export interface CrawlOptions {
   url: string;
   maxPages?: number;
-  onProgress?: (message: string, progress: number) => void;
+  scope: string;
 }
 
 export interface CrawlResult {
@@ -28,8 +28,8 @@ export interface CrawlResult {
   jsonLd?: any;
 }
 
-export async function runCrawl(options: CrawlOptions): Promise<CrawlResult[]> {
-  const { url, maxPages = 1000, onProgress } = options;
+export async function runCrawl(options: CrawlOptions): Promise<string> {
+  const { url, maxPages = 1000, scope } = options;
 
   if (ongoingCrawls.has(url)) {
     throw new Error("A crawl for this site is already in progress.");
@@ -38,41 +38,45 @@ export async function runCrawl(options: CrawlOptions): Promise<CrawlResult[]> {
   ongoingCrawls.add(url);
 
   try {
-    onProgress?.("Initializing crawler...", 0)
+    // Prepare the input for the Actor
+    const input = prepareApifyInput(url, maxPages.toString(), scope);
 
-    let processedPages = 0;
+    // Run the Actor and get the run ID
+    const run = await client.actor("apify/cheerio-scraper").call(input);
 
-    // Insert a new Crawl-Run record
+    // Insert a new Crawl-Run record with the Apify run ID
     const crawlRun = await insertCrawlRun({
-      run_id: '', // This will be set by Supabase
+      run_id: run.id, // Use the Apify run ID here
       domain: url,
-      type: 'web-scraper',
+      type: 'cheerio-scraper',
       max_page_count: maxPages,
       status: 'running'
     });
 
-    // Prepare the input for the Actor
-    const input = prepareApifyInput(url, maxPages.toString());
+    // Start a background process to handle the results
+    handleCrawlResults(run.id, crawlRun.run_id);
 
-    // Run the Actor and wait for it to finish
-    const run = await client.actor("apify/web-scraper").call(input);
+    return crawlRun.run_id; // Return the Supabase Crawl-Run ID
+  } finally {
+    ongoingCrawls.delete(url);
+  }
+}
 
-    onProgress?.("Crawl finished, fetching results...", 100)
-
-    // Fetch and return the results
+async function handleCrawlResults(apifyRunId: string, crawlRunId: string) {
+  try {
+    const run = await client.run(apifyRunId).waitForFinish();
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
     // Update the Crawl-Run record
-    await updateCrawlRun(crawlRun.run_id, items.length, 'completed');
+    await updateCrawlRun(crawlRunId, items.length, 'completed');
 
     // Insert page data into Supabase
     for (const item of items) {
-      await insertPageData(crawlRun.run_id, item as CrawlResult);
+      await insertPageData(crawlRunId, item as CrawlResult);
     }
-
-    return items as CrawlResult[];
-  } finally {
-    ongoingCrawls.delete(url);
+  } catch (error) {
+    console.error('Error handling crawl results:', error);
+    await updateCrawlRun(crawlRunId, 0, 'failed');
   }
 }
 
