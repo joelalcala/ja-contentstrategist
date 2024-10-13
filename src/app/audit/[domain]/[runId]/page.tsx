@@ -1,19 +1,16 @@
 "use client"
 
-import React, { useState, useRef, useEffect, useMemo } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { useApify } from '@/contexts/ApifyContext'
 import { LeftPanel } from "@/components/audit/LeftPanel"
 import { PageTable } from '@/components/audit/PageTable'
 import { AddFieldModal } from '@/components/audit/AddFieldModal'
 import { FiltersDialog } from '@/components/audit/FiltersDialog'
-import { Search, Filter, RefreshCw, File, ChevronLeft, ExternalLink, Loader2 } from "lucide-react"
+import { Search, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ApifyCrawlResult, CrawlPage } from '@/lib/api/types'
-import { SupabaseApi } from '@/lib/api/supabase/supabaseApi'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -31,24 +28,16 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { CrawlRun } from '@/lib/supabaseClient';
 import { TableLoadingSkeleton } from '@/components/audit/TableLoadingSkeleton';
 import { TableActions } from '@/components/audit/TableActions';
+import { useCrawlRun } from '@/hooks/useCrawlRun';
+import { useFilteredPages } from '@/hooks/useFilteredPages';
 
 const initialFields = {
   Status: ["Needs review", "Keep as is", "Rewrite", "Merge", "Delete"],
@@ -66,12 +55,7 @@ function formatPath(path: string): string {
 
 export default function AuditPage({ params }: { params: { domain: string; runId: string } }) {
   const router = useRouter()
-  const apifyApi = useApify()
-  const supabaseApi = new SupabaseApi()
-  const [crawlRun, setCrawlRun] = useState<ApifyCrawlResult | null>(null)
-  const [pages, setPages] = useState<CrawlPage[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const { crawlRun, pages, isLoading, isRefreshing, fetchCrawlRunData } = useCrawlRun(params.runId);
   const [leftPanelWidth, setLeftPanelWidth] = useState(256)
   const [rightPanelWidth, setRightPanelWidth] = useState(480)
   const [selectedPage, setSelectedPage] = useState<CrawlPage | null>(null)
@@ -94,145 +78,16 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
   const [isNavigating, setIsNavigating] = useState(false)
   const [expandedNodes, setExpandedNodes] = useState<string[]>(['/']);
 
-  useEffect(() => {
-    console.log("Audit page mounted. Params:", params);
-    if (apifyApi) {
-      console.log("ApifyApi is available. Fetching crawl run data...");
-      fetchCrawlRunData(params.runId)
-    } else {
-      console.log("ApifyApi is not available yet.");
-    }
-  }, [apifyApi, params.runId])
-
-  const fetchCrawlRunData = async (runId: string) => {
-    console.log("Fetching crawl run data for runId:", runId);
-    setIsRefreshing(true);
-    setIsLoading(true);
-    try {
-      console.log("Fetching crawl status from Apify...");
-      const { data: run, error: runError } = await apifyApi.getCrawlStatus(runId);
-      console.log("Apify crawl status response:", run);
-
-      if (runError) throw new Error(runError);
-      setCrawlRun(run);
-
-      if (run && run.defaultDatasetId) {
-        console.log("Fetching crawl results from Apify dataset...");
-        const { data: crawlResults, error: resultsError } = await apifyApi.getCrawlResults(run.defaultDatasetId);
-        
-        if (resultsError) throw new Error(resultsError);
-
-        console.log("Crawl results fetched successfully. Count:", crawlResults?.length);
-
-        if (crawlResults && Array.isArray(crawlResults) && crawlResults.length > 0) {
-          console.log("Processing crawl results...");
-          const processedPages = crawlResults.map(result => ({
-            url: result.url,
-            title: result.pageTitle || null,
-            content_type: result.contentType || null,
-            body: result.body || null,
-            custom_fields: {}, // Initialize as empty object
-            run_id: runId,
-          }));
-
-          console.log("Processed pages:", processedPages);
-
-          console.log("Storing crawl results in Supabase...");
-          const { data: storedPages, error: storeError } = await supabaseApi.insertCrawlPages(processedPages);
-
-          if (storeError) throw new Error(storeError);
-
-          console.log("Crawl results stored successfully. Count:", storedPages?.length);
-          setPages(storedPages || []);
-        } else {
-          console.log("No valid crawl results to process.");
-          setPages([]);
-        }
-      } else {
-        console.log("Fetching crawl pages from Supabase...");
-        const { data: crawlPages, error: pagesError } = await supabaseApi.getCrawlPages(runId);
-
-        if (pagesError) throw new Error(pagesError);
-      
-        console.log("Crawl pages fetched from Supabase successfully. Count:", crawlPages?.length);
-        setPages(crawlPages || []);
-      }
-    } catch (error) {
-      console.error('Error in fetchCrawlRunData:', error);
-      setPages([]);
-      setCrawlRun(null);
-    } finally {
-      setIsRefreshing(false);
-      setIsLoading(false);
-      console.log("Finished fetching crawl run data. Pages count:", pages.length);
-    }
-  };
-
-  const handleRefresh = () => {
-    fetchCrawlRunData(params.runId)
-  }
-
-  const handleNewCrawl = () => {
-    router.push('/crawl')
-  }
-
-  const handleDecision = (id: string, fieldType: string, value: string) => {
-    setPages(pages.map(page =>
-      page.id === id ? { ...page, fields: { ...page.fields, [fieldType]: value } } : page
-    ))
-  }
-
-  const addField = (fieldType: string, options: string[]) => {
-    setFields({ ...fields, [fieldType]: options })
-    setVisibleFields([...visibleFields, fieldType])
-  }
-
-  const toggleFieldVisibility = (fieldType: string) => {
-    setVisibleFields(prev =>
-      prev.includes(fieldType)
-        ? prev.filter(d => d !== fieldType)
-        : [...prev, fieldType]
-    )
-  }
-
-  const handleSelectPage = (page: CrawlPage) => {
-    setIsNavigating(true)
-    router.push(`/audit/${params.domain}/${params.runId}/${encodeURIComponent(page.url)}`)
-  }
-
-  const startResizing = () => {
-    setIsResizing(true)
-  }
-
-  const filteredPages = useMemo(() => {
-    return pages.filter(page => {
-      const matchesSearch = 
-        (page.title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-        (page.url?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-        (page.content_type?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-
-      const matchesActiveFilters = Object.entries(activeFilters).every(([key, values]) => {
-        if (!values || values === "all") return true;
-        if (key === 'content_type') {
-          return values === page.content_type;
-        }
-        if (key === 'urlContains') {
-          return page.url?.includes(values as string) ?? false;
-        }
-        return values === page.custom_fields?.[key];
-      });
-
-      const matchesPath = selectedPath === "all" || selectedPath === "/" || 
-        (page.url && new URL(page.url).pathname.startsWith(selectedPath));
-
-      return matchesSearch && matchesActiveFilters && matchesPath;
-    });
-  }, [pages, searchQuery, activeFilters, selectedPath]);
+  const filteredPages = useFilteredPages({ pages, searchQuery, activeFilters, selectedPath });
 
   useEffect(() => {
     console.log("Pages state updated:", pages);
     console.log("Filtered pages:", filteredPages);
   }, [pages, filteredPages]);
+
+  const startResizing = () => {
+    setIsResizing(true)
+  }
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -274,6 +129,19 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
   const handleExportClick = () => {
     // Implement export functionality here
     console.log('Export clicked');
+  };
+
+  const handleRefresh = () => {
+    fetchCrawlRunData();
+  };
+
+  const handleNewCrawl = () => {
+    router.push('/crawl');
+  };
+
+  const addField = (fieldType: string, options: string[]) => {
+    setFields({ ...fields, [fieldType]: options });
+    setVisibleFields([...visibleFields, fieldType]);
   };
 
   return (
@@ -365,7 +233,7 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
                     <CardHeader>
                       <CardTitle>{formatTitle(selectedPath)}</CardTitle>
                       <CardDescription>Manage your {type}s and view their content.</CardDescription>
-                    </CardHeader>
+                    </CardHeader> 
                     <CardContent>
                       {isLoading ? (
                         <TableLoadingSkeleton />
