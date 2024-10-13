@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/tabs"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { CrawlRun } from '@/lib/supabaseClient';
+import { TableLoadingSkeleton } from '@/components/audit/TableLoadingSkeleton';
 
 const initialFields = {
   Status: ["Needs review", "Keep as is", "Rewrite", "Merge", "Delete"],
@@ -254,27 +255,6 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
     }
   }, [isResizing])
 
-  const TableLoadingSkeleton = () => (
-    <div className="space-y-4">
-      <div className="flex space-x-4">
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-1/4" />
-        <Skeleton className="h-8 w-1/4" />
-        <Skeleton className="h-8 w-1/4" />
-        <Skeleton className="h-8 w-1/4" />
-      </div>
-      {[...Array(10)].map((_, index) => (
-        <div key={index} className="flex space-x-4">
-          <Skeleton className="h-6 w-6" />
-          <Skeleton className="h-6 w-1/4" />
-          <Skeleton className="h-6 w-1/4" />
-          <Skeleton className="h-6 w-1/4" />
-          <Skeleton className="h-6 w-1/4" />
-        </div>
-      ))}
-    </div>
-  )
-
   const formatTitle = (path: string): string => {
     const pageType = selectedPath === 'all' ? 'Pages' : 'Pages';
     if (path === 'all' || path === '/') return pageType;
@@ -401,12 +381,12 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
                         <TableLoadingSkeleton />
                       ) : (
                         <PageTable
-                        pages={filteredPages}
-                        visibleColumns={visibleColumns}
-                        visibleFields={visibleFields}
-                        selectedRows={selectedRows}
-                        setSelectedRows={setSelectedRows}
-                        activeFilters={activeFilters}
+                          pages={filteredPages}
+                          visibleColumns={visibleColumns}
+                          visibleFields={visibleFields}
+                          selectedRows={selectedRows}
+                          setSelectedRows={setSelectedRows}
+                          activeFilters={activeFilters}
                         />
                       )}
                     </CardContent>
