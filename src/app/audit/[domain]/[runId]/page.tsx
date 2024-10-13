@@ -38,6 +38,7 @@ import { TableLoadingSkeleton } from '@/components/audit/TableLoadingSkeleton';
 import { TableActions } from '@/components/audit/TableActions';
 import { useCrawlRun } from '@/hooks/useCrawlRun';
 import { useFilteredPages } from '@/hooks/useFilteredPages';
+import { Breadcrumbs } from '@/components/audit/Breadcrumbs';
 
 const initialFields = {
   Status: ["Needs review", "Keep as is", "Rewrite", "Merge", "Delete"],
@@ -180,27 +181,12 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
           onMouseDown={startResizing}
         />
         <main className="flex-1 flex flex-col overflow-hidden">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link href="/">Dashboard</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link href="/audit">Audit</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{crawlRun?.actorTaskId || 'Current Audit'}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-
+          <header className="top-0 z-30 flex h-14 items-center gap-4 px-4 sm:px-6">
+            <Breadcrumbs 
+              domain={params.domain} 
+              runId={params.runId} 
+              actorTaskId={crawlRun?.actorTaskId}
+            />
           </header>
           <div className="flex-1 overflow-auto p-4 sm:px-6">
             <Tabs defaultValue="page" className="space-y-4">
