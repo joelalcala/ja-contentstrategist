@@ -48,6 +48,7 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { CrawlRun } from '@/lib/supabaseClient';
 import { TableLoadingSkeleton } from '@/components/audit/TableLoadingSkeleton';
+import { TableActions } from '@/components/audit/TableActions';
 
 const initialFields = {
   Status: ["Needs review", "Keep as is", "Rewrite", "Merge", "Delete"],
@@ -266,6 +267,15 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
     setSelectedPath(path);
   };
 
+  const handleFilterClick = () => {
+    setIsFiltersOpen(true);
+  };
+
+  const handleExportClick = () => {
+    // Implement export functionality here
+    console.log('Export clicked');
+  };
+
   return (
     <div className="flex flex-col h-screen bg-muted/40">
       {isNavigating && (
@@ -347,27 +357,7 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
                     </TabsTrigger>
                   ))}
                 </TabsList>
-                <div className="ml-auto flex items-center gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8 gap-1">
-                        <Filter className="h-3.5 w-3.5" />
-                        <span className="sr-only sm:not-sr-only">Filter</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuCheckboxItem checked>Active</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem>Draft</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem>Archived</DropdownMenuCheckboxItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button size="sm" variant="outline" className="h-8 gap-1">
-                    <File className="h-3.5 w-3.5" />
-                    <span className="sr-only sm:not-sr-only">Export</span>
-                  </Button>
-                </div>
+                <TableActions onFilterClick={handleFilterClick} onExportClick={handleExportClick} />
               </div>
               {pageTypes.map((type) => (
                 <TabsContent key={type} value={type}>
