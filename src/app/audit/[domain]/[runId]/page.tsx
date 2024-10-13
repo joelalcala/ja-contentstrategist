@@ -303,7 +303,7 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
             </div>
           ) : (
             <LeftPanel
-              pages={filteredPages}
+              pages={pages}
               selectedPath={selectedPath}
               setSelectedPath={handleSetSelectedPath}
               onNewCrawl={handleNewCrawl}
