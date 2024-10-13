@@ -13,12 +13,15 @@ interface TreeNode {
   isFolder: boolean;
 }
 
-export function buildFolderTree(pages: Array<{ path: string }>): TreeNode {
+export function buildFolderTree(pages: Array<{ url: string }>): TreeNode {
   const root: TreeNode = { name: 'Home', children: [], path: '/', count: 0, isFolder: true };
   const pathCounts: { [key: string]: number } = {};
 
   pages.forEach(page => {
-    const parts = page.path.split('/').filter(Boolean);
+    if (!page.url) return; // Skip pages without a URL
+
+    const path = new URL(page.url).pathname;
+    const parts = path.split('/').filter(Boolean);
     let currentNode = root;
     let currentPath = '';
 
@@ -53,3 +56,6 @@ export function buildFolderTree(pages: Array<{ path: string }>): TreeNode {
 
   return root;
 }
+
+
+

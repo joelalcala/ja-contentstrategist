@@ -41,11 +41,28 @@ export class SupabaseApi {
     return { data: data as CrawlRun | null, error: error?.message };
   }
 
-  async insertCrawlPages(pages: CrawlPage[]): Promise<ApiResponse<CrawlPage[]>> {
+async insertCrawlPages(pages: CrawlPage[]): Promise<ApiResponse<CrawlPage[]>> {
+    console.log("Received pages for insertion:", pages);
+
+    // Filter out pages with null URLs
+    const validPages = pages.filter(page => page.url != null);
+    console.log("Valid pages after filtering:", validPages);
+
+    if (validPages.length === 0) {
+      console.log("No valid pages to insert");
+      return { data: [], error: null };
+    }
+
     const { data, error } = await this.client
       .from('Crawl-Pages')
-      .insert(pages)
+      .insert(validPages)
       .select();
+
+    if (error) {
+      console.error("Error inserting pages:", error);
+    } else {
+      console.log("Successfully inserted pages:", data);
+    }
 
     return { data: data as CrawlPage[] | null, error: error?.message };
   }

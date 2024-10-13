@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useApify } from '@/contexts/ApifyContext'
 import { LeftPanel } from "@/components/audit/LeftPanel"
 import { PageTable } from '@/components/audit/PageTable'
 import { AddFieldModal } from '@/components/audit/AddFieldModal'
@@ -11,7 +12,8 @@ import { Search, Filter, RefreshCw, File, ChevronLeft, ExternalLink, Loader2 } f
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ApifyClient } from 'apify-client'
+import { ApifyCrawlResult, CrawlPage } from '@/lib/api/types'
+import { SupabaseApi } from '@/lib/api/supabase/supabaseApi'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -46,10 +48,6 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { CrawlRun } from '@/lib/supabaseClient';
 
-const apifyClient = new ApifyClient({
-  token: process.env.NEXT_PUBLIC_APIFY_API_TOKEN,
-});
-
 const initialFields = {
   Status: ["Needs review", "Keep as is", "Rewrite", "Merge", "Delete"],
 }
@@ -64,36 +62,17 @@ function formatPath(path: string): string {
     .join(' / ');
 }
 
-interface CrawlRun {
-  id: string;
-  status: string;
-  startedAt: string;
-  finishedAt: string;
-  actorTaskId: string;
-  buildId: string;
-  exitCode: number;
-  defaultDatasetId: string;
-  defaultKeyValueStoreId: string;
-  defaultRequestQueueId: string;
-}
-
-interface Page {
-  id: string;
-  url: string;
-  title: string;
-  path: string;
-  type: string;
-  fields: Record<string, any>;
-  description: string;
-  metaDescription: string;
-}
-
 export default function AuditPage({ params }: { params: { domain: string; runId: string } }) {
   const router = useRouter()
+  const apifyApi = useApify()
+  const supabaseApi = new SupabaseApi()
+  const [crawlRun, setCrawlRun] = useState<ApifyCrawlResult | null>(null)
+  const [pages, setPages] = useState<CrawlPage[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [leftPanelWidth, setLeftPanelWidth] = useState(256)
   const [rightPanelWidth, setRightPanelWidth] = useState(480)
-  const [pages, setPages] = useState<Page[]>([])
-  const [selectedPage, setSelectedPage] = useState<Page | null>(null)
+  const [selectedPage, setSelectedPage] = useState<CrawlPage | null>(null)
   const [fields, setFields] = useState(initialFields)
   const [visibleColumns, setVisibleColumns] = useState(["title", "path", "type"])
   const [visibleFields, setVisibleFields] = useState(Object.keys(initialFields))
@@ -109,51 +88,86 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
   const [selectedRows, setSelectedRows] = useState(new Set<string>())
   const [activeView, setActiveView] = useState("default")
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
-  const [crawlRun, setCrawlRun] = useState<CrawlRun | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
   const [pageTypes, setPageTypes] = useState(['page', 'article', 'event', 'contact'])
   const [isNavigating, setIsNavigating] = useState(false)
 
+  useEffect(() => {
+    console.log("Audit page mounted. Params:", params);
+    if (apifyApi) {
+      console.log("ApifyApi is available. Fetching crawl run data...");
+      fetchCrawlRunData(params.runId)
+    } else {
+      console.log("ApifyApi is not available yet.");
+    }
+  }, [apifyApi, params.runId])
+
   const fetchCrawlRunData = async (runId: string) => {
+    console.log("Fetching crawl run data for runId:", runId);
     setIsRefreshing(true);
     setIsLoading(true);
     try {
-      const run = await apifyClient.run(runId).get();
-      console.log('Fetched run:', run);
-      setCrawlRun(run as unknown as CrawlRun);
+      console.log("Fetching crawl status from Apify...");
+      const { data: run, error: runError } = await apifyApi.getCrawlStatus(runId);
+      console.log("Apify crawl status response:", run);
 
-      if (!run || !run.defaultDatasetId) {
-        console.error('Run or defaultDatasetId is undefined:', run);
-        throw new Error('Invalid run data');
+      if (runError) throw new Error(runError);
+      setCrawlRun(run);
+
+      if (run && run.defaultDatasetId) {
+        console.log("Fetching crawl results from Apify dataset...");
+        const { data: crawlResults, error: resultsError } = await apifyApi.getCrawlResults(run.defaultDatasetId);
+        
+        if (resultsError) throw new Error(resultsError);
+
+        console.log("Crawl results fetched successfully. Count:", crawlResults?.length);
+
+        if (crawlResults && Array.isArray(crawlResults) && crawlResults.length > 0) {
+          console.log("Processing crawl results...");
+          const processedPages = crawlResults.map(result => ({
+            url: result.url,
+            title: result.pageTitle || null,
+            content_type: result.contentType || null,
+            body: result.body || null,
+            custom_fields: {}, // Initialize as empty object
+            run_id: runId,
+          }));
+
+          console.log("Processed pages:", processedPages);
+
+          console.log("Storing crawl results in Supabase...");
+          const { data: storedPages, error: storeError } = await supabaseApi.insertCrawlPages(processedPages);
+
+          if (storeError) throw new Error(storeError);
+
+          console.log("Crawl results stored successfully. Count:", storedPages?.length);
+          setPages(storedPages || []);
+        } else {
+          console.log("No valid crawl results to process.");
+          setPages([]);
+        }
+      } else {
+        console.log("Fetching crawl pages from Supabase...");
+        const { data: crawlPages, error: pagesError } = await supabaseApi.getCrawlPages(runId);
+
+        if (pagesError) throw new Error(pagesError);
+      
+        console.log("Crawl pages fetched from Supabase successfully. Count:", crawlPages?.length);
+        setPages(crawlPages || []);
       }
-
-      const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
-      console.log('Fetched items:', items);
-      const processedPages = items.map((item: any, index) => ({
-        id: index.toString(),
-        url: item.url || '',
-        title: item.pageTitle || item.title || 'No Title',
-        path: item.url ? new URL(item.url).pathname : '/',
-        type: 'page',
-        description: item.description || '',
-        metaDescription: item.metaDescription || '',
-        fields: {},
-      }));
-      setPages(processedPages);
     } catch (error) {
-      console.error('Error fetching crawl run data:', error);
+      console.error('Error in fetchCrawlRunData:', error);
       setPages([]);
       setCrawlRun(null);
     } finally {
       setIsRefreshing(false);
       setIsLoading(false);
+      console.log("Finished fetching crawl run data. Pages count:", pages.length);
     }
   };
 
-  useEffect(() => {
-    fetchCrawlRunData(params.runId);
-  }, [params.runId]);
+  const handleRefresh = () => {
+    fetchCrawlRunData(params.runId)
+  }
 
   const handleNewCrawl = () => {
     router.push('/crawl')
@@ -178,7 +192,7 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
     )
   }
 
-  const handleSelectPage = (page: Page) => {
+  const handleSelectPage = (page: CrawlPage) => {
     setIsNavigating(true)
     router.push(`/audit/${params.domain}/${params.runId}/${encodeURIComponent(page.url)}`)
   }
@@ -191,25 +205,31 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
     return pages.filter(page => {
       const matchesSearch = 
         (page.title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-        (page.path?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-        (page.type?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+        (page.url?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+        (page.content_type?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
       const matchesActiveFilters = Object.entries(activeFilters).every(([key, values]) => {
         if (!values || values === "all") return true;
-        if (key === 'type') {
-          return values === page.type;
+        if (key === 'content_type') {
+          return values === page.content_type;
         }
         if (key === 'urlContains') {
-          return page.path?.includes(values as string) ?? false;
+          return page.url?.includes(values as string) ?? false;
         }
-        return values === page.fields?.[key];
+        return values === page.custom_fields?.[key];
       });
 
-      const matchesPath = selectedPath === "all" || selectedPath === "/" || page.path.startsWith(selectedPath);
+      const matchesPath = selectedPath === "all" || selectedPath === "/" || 
+        (page.url && new URL(page.url).pathname.startsWith(selectedPath));
 
       return matchesSearch && matchesActiveFilters && matchesPath;
     });
-  }, [pages, searchQuery, activeFilters, selectedPath])
+  }, [pages, searchQuery, activeFilters, selectedPath]);
+
+  useEffect(() => {
+    console.log("Pages state updated:", pages);
+    console.log("Filtered pages:", filteredPages);
+  }, [pages, filteredPages]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -260,6 +280,11 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
     return `${pageType} / ${formatPath(path)}`;
   }
 
+  const handleSetSelectedPath = (path: string) => {
+    console.log("Setting selected path:", path);
+    setSelectedPath(path);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-muted/40">
       {isNavigating && (
@@ -278,12 +303,12 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
             </div>
           ) : (
             <LeftPanel
-              pages={pages}
+              pages={filteredPages}
               selectedPath={selectedPath}
-              setSelectedPath={setSelectedPath}
+              setSelectedPath={handleSetSelectedPath}
               onNewCrawl={handleNewCrawl}
               onShowSiteSettings={() => setShowSiteSettings(true)}
-              crawledPages={pages.length}
+              crawledPages={filteredPages.length}
               maxPages={crawlRun?.defaultDatasetId ? pages.length : 0}
               crawlStatus={crawlRun?.status || ''}
             />
@@ -325,6 +350,10 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
                 className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px]"
               />
             </div>
+            <Button onClick={handleRefresh} size="sm" variant="outline" className="h-8 gap-1" disabled={isRefreshing}>
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only">Refresh</span>
+            </Button>
           </header>
           <div className="flex-1 overflow-auto p-4 sm:px-6">
             <Tabs defaultValue="page" className="space-y-4">
@@ -370,26 +399,18 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
                         <TableLoadingSkeleton />
                       ) : (
                         <PageTable
-                          data={filteredPages.filter(page => page.type === type)}
-                          onDecision={handleDecision}
-                          fields={fields}
-                          visibleColumns={visibleColumns}
-                          setVisibleColumns={setVisibleColumns}
-                          visibleFields={visibleFields}
-                          toggleFieldVisibility={toggleFieldVisibility}
-                          onSelectPage={handleSelectPage}
-                          selectedPage={selectedPage}
-                          selectedRows={selectedRows}
-                          setSelectedRows={setSelectedRows}
-                          activeView={activeView}
-                          setActiveView={setActiveView}
-                          domain={params.domain}
+                        pages={filteredPages}
+                        visibleColumns={visibleColumns}
+                        visibleFields={visibleFields}
+                        selectedRows={selectedRows}
+                        setSelectedRows={setSelectedRows}
+                        activeFilters={activeFilters}
                         />
                       )}
                     </CardContent>
                     <CardFooter>
                       <div className="text-xs text-muted-foreground">
-                        Showing <strong>1-{filteredPages.filter(page => page.type === type).length}</strong> of <strong>{pages.filter(page => page.type === type).length}</strong> {type}s
+                        Showing <strong>1-{filteredPages.filter(page => page.content_type === type).length}</strong> of <strong>{pages.filter(page => page.content_type === type).length}</strong> {type}s
                       </div>
                     </CardFooter>
                   </Card>
