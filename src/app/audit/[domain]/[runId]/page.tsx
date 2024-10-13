@@ -84,6 +84,10 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
   useEffect(() => {
     console.log("Pages state updated:", pages);
     console.log("Filtered pages:", filteredPages);
+    // Add more detailed logging
+    if (pages.length > 0) {
+      console.log("Sample page data:", pages[0]);
+    }
   }, [pages, filteredPages]);
 
   const startResizing = () => {

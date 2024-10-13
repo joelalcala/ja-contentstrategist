@@ -35,11 +35,20 @@ export function useCrawlRun(runId: string) {
           console.log("Processing crawl results...");
           const processedPages = crawlResults.map(result => ({
             url: result.url,
-            title: result.pageTitle || null,
-            content_type: result.contentType || null,
+            title: result.title || null,
+            content_type: result.content_type || 'page',
             body: result.body || null,
             custom_fields: {}, // Initialize as empty object
             run_id: runId,
+            h1_1: result.h1_1 || null,
+            h2_1: result.h2_1 || null,
+            h2_2: result.h2_2 || null,
+            jsonLd: result.jsonLd || null,
+            lang: result.lang || null,
+            description: result.description || null,
+            og_image: result.og_image || null,
+            author: result.author || null,
+            publication_date: result.publication_date || null,
           }));
 
           console.log("Processed pages:", processedPages);

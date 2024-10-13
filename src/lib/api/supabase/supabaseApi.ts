@@ -42,30 +42,36 @@ export class SupabaseApi {
   }
 
 async insertCrawlPages(pages: CrawlPage[]): Promise<ApiResponse<CrawlPage[]>> {
-    console.log("Received pages for insertion:", pages);
+  console.log("Received pages for insertion:", pages);
 
-    // Filter out pages with null URLs
-    const validPages = pages.filter(page => page.url != null);
-    console.log("Valid pages after filtering:", validPages);
+  // Filter out pages with null URLs
+  const validPages = pages.map(page => ({
+    ...page,
+    publication_date: page.publication_date ? new Date(page.publication_date) : null,
+    jsonLd: page.jsonLd || null,
+    content_type: page.content_type || 'page',
+  })).filter(page => page.url != null);
 
-    if (validPages.length === 0) {
-      console.log("No valid pages to insert");
-      return { data: [], error: null };
-    }
+  console.log("Valid pages after filtering:", validPages);
 
-    const { data, error } = await this.client
-      .from('Crawl-Pages')
-      .insert(validPages)
-      .select();
-
-    if (error) {
-      console.error("Error inserting pages:", error);
-    } else {
-      console.log("Successfully inserted pages:", data);
-    }
-
-    return { data: data as CrawlPage[] | null, error: error?.message };
+  if (validPages.length === 0) {
+    console.log("No valid pages to insert");
+    return { data: [], error: null };
   }
+
+  const { data, error } = await this.client
+    .from('Crawl-Pages')
+    .insert(validPages)
+    .select();
+
+  if (error) {
+    console.error("Error inserting pages:", error);
+  } else {
+    console.log("Successfully inserted pages:", data);
+  }
+
+  return { data: data as CrawlPage[] | null, error: error?.message };
+}
 
   async updateCrawlPages(runId: string, updates: Partial<CrawlPage>): Promise<ApiResponse<CrawlPage[]>> {
     const { data, error } = await this.client

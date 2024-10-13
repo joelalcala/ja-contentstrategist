@@ -46,16 +46,19 @@ async function handleCrawlResults(apifyRunId: string, crawlRunId: string) {
 
     for (const item of items) {
       const crawlResult: CrawlResult = {
-        url: item.url as string,
-        pageTitle: item.pageTitle as string,
-        h1: item.h1 as string,
-        first_h2: item.first_h2 as string,
-        random_text_from_the_page: item.random_text_from_the_page as string,
-        metaDescription: item.metaDescription as string,
-        canonicalUrl: item.canonicalUrl as string,
-        ogMetadata: item.ogMetadata as Record<string, string>,
+        url: item.url,
+        title: item.title,
+        h1_1: item.h1_1,
+        h2_1: item.h2_1,
+        h2_2: item.h2_2,
+        description: item.description,
+        lang: item.lang,
+        og_image: item.og_image,
+        author: item.author,
+        publication_date: item.publication_date,
+        content_type: item.content_type,
+        body: item.body,
         jsonLd: item.jsonLd,
-        processedRequestCount: item.processedRequestCount as number,
       };
       await insertPageData(crawlRunId, crawlResult);
     }
@@ -68,7 +71,7 @@ async function handleCrawlResults(apifyRunId: string, crawlRunId: string) {
 export async function getApifyDatasetItem(datasetId: string, url: string): Promise<CrawlResult | null> {
   try {
     const { items } = await client.dataset(datasetId).listItems({
-      fields: ['url', 'pageTitle', 'h1', 'first_h2', 'random_text_from_the_page', 'metaDescription', 'canonicalUrl', 'ogMetadata', 'jsonLd'],
+      fields: ['url', 'title', 'h1_1', 'h2_1', 'h2_2', 'description', 'lang', 'og_image', 'author', 'publication_date', 'content_type', 'body', 'jsonLd'],
       limit: 1,
     });
 

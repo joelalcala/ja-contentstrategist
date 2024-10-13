@@ -61,17 +61,18 @@ export async function insertPageData(run_id: string, pageData: CrawlResult): Pro
     .insert({
       run_id,
       url: pageData.url,
-      title: pageData.pageTitle,
-      content_type: null,
-      body: pageData.random_text_from_the_page,
-      custom_fields: JSON.stringify({
-        h1: pageData.h1,
-        first_h2: pageData.first_h2,
-        metaDescription: pageData.metaDescription,
-        canonicalUrl: pageData.canonicalUrl,
-        ogMetadata: pageData.ogMetadata,
-        jsonLd: pageData.jsonLd,
-      })
+      title: pageData.title,
+      content_type: pageData.content_type,
+      body: pageData.body,
+      h1_1: pageData.h1_1,
+      h2_1: pageData.h2_1,
+      h2_2: pageData.h2_2,
+      description: pageData.description,
+      lang: pageData.lang,
+      og_image: pageData.og_image,
+      author: pageData.author,
+      publication_date: pageData.publication_date,
+      jsonLd: pageData.jsonLd,
     });
 
   if (error) {

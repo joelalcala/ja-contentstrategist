@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ApifyCrawlInput } from '@/lib/api/apify/types'
 import { useApify } from '@/contexts/ApifyContext'
+import { prepareApifyInput } from '@/lib/apifyInput'
 
 export default function Crawl() {
 	const [isCrawling, setIsCrawling] = useState(false)
@@ -36,69 +36,7 @@ export default function Crawl() {
 		setIsCrawling(true)
 
 		try {
-			const input: ApifyCrawlInput = {
-				startUrls: [{ url: domain }],
-				keepUrlFragments: false,
-				globs: scope === "entire" ? [{ glob: `${domain}/*` }] : 
-					   scope === "subdomain" ? [{ glob: `${domain}/**` }] :
-					   [{ glob: "**" }],
-				pseudoUrls: [],
-				excludes: [{ glob: "/**/*.{png,jpg,jpeg,pdf}" }],
-				linkSelector: "a[href]",
-				pageFunction: `async function pageFunction(context) {
-					const { $, request, log } = context;
-					const pageTitle = $('title').first().text();
-					const h1 = $('h1').first().text();
-					const first_h2 = $('h2').first().text();
-					const metaDescription = $('meta[name="description"]').attr('content');
-					const canonicalUrl = $('link[rel="canonical"]').attr('href');
-					const ogMetadata = {};
-					$('meta[property^="og:"]').each((_, el) => {
-						const property = $(el).attr('property');
-						const content = $(el).attr('content');
-						if (property && content) {
-							ogMetadata[property] = content;
-						}
-					});
-					const jsonLd = $('script[type="application/ld+json"]').map((_, el) => {
-						try {
-							return JSON.parse($(el).html());
-						} catch (e) {
-							return null;
-						}
-					}).get().filter(Boolean);
-					const random_text_from_the_page = $('p').text().substring(0, 200);
-					
-					return {
-						url: request.url,
-						pageTitle,
-						h1,
-						first_h2,
-						metaDescription,
-						canonicalUrl,
-						ogMetadata,
-						jsonLd,
-						random_text_from_the_page,
-					};
-				}`,
-				proxyConfiguration: { useApifyProxy: true },
-				proxyRotation: "RECOMMENDED",
-				initialCookies: [],
-				additionalMimeTypes: [],
-				forceResponseEncoding: false,
-				ignoreSslErrors: false,
-				preNavigationHooks: `[]`,
-				postNavigationHooks: `[]`,
-				maxRequestRetries: 3,
-				maxPagesPerCrawl: limit === "Entire site" ? 0 : parseInt(limit),
-				maxResultsPerCrawl: 0,
-				maxCrawlingDepth: 0,
-				maxConcurrency: 10,
-				pageLoadTimeoutSecs: 60,
-				pageFunctionTimeoutSecs: 60,
-				debugLog: false,
-				customData: {},
-			};
+			const input = prepareApifyInput(domain, limit, scope);
 
 			const response = await fetch('/api/crawl', {
 				method: 'POST',
@@ -175,7 +113,7 @@ export default function Crawl() {
 										<SelectItem value="50">50 pages</SelectItem>
 										<SelectItem value="100">100 pages</SelectItem>
 										<SelectItem value="500">500 pages</SelectItem>
-										<SelectItem value="Entire site">Entire site</SelectItem>
+										<SelectItem value="0">Entire site</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>

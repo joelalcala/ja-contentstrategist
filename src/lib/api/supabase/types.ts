@@ -11,10 +11,19 @@ export interface CrawlRun {
 export interface CrawlPage {
   url: string;
   created_at?: string;
-  title?: string;
-  content_type?: string;
-  body?: string;
+  title: string | null;
+  content_type: string | null;
+  body: string | null;
   custom_fields?: Record<string, any>;
   page_id?: string;
   run_id: string;
+  h1_1: string | null;
+  h2_1: string | null;
+  h2_2: string | null;
+  jsonLd: any | null;
+  lang: string | null;
+  description: string | null;
+  og_image: string | null;
+  author: string | null;
+  publication_date: string | null;
 }

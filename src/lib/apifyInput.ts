@@ -1,5 +1,3 @@
-import { EnqueueStrategy } from 'crawlee';
-
 export interface ApifyInput {
   startUrls: { url: string }[];
   keepUrlFragments: boolean;
@@ -14,6 +12,7 @@ export interface ApifyInput {
   additionalMimeTypes: string[];
   globs: string[];
   pageFunction: string;
+  maxPagesPerCrawl?: number;
 }
 
 export function prepareApifyInput(domain: string, limit: string, scope: string): ApifyInput {
@@ -29,15 +28,18 @@ export function prepareApifyInput(domain: string, limit: string, scope: string):
       break;
     case 'entire':
     default:
-      glob = `[${url.protocol}//${url.hostname}]/**`;
+      glob = `${url.protocol}//${url.hostname}]/**`;
       break;
   }
+
+  const maxPages = limit === "0" ? undefined : parseInt(limit);
 
   return {
     startUrls: [{ url: domain }],
     keepUrlFragments: false,
     linkSelector: "a[href]",
-    maxRequestsPerCrawl: limit === "0" ? undefined : parseInt(limit),
+    maxRequestsPerCrawl: maxPages,
+    maxPagesPerCrawl: maxPages,
     maxConcurrency: 10,
     pageLoadTimeoutSecs: 60,
     proxyConfiguration: { useApifyProxy: true },
@@ -49,32 +51,23 @@ export function prepareApifyInput(domain: string, limit: string, scope: string):
     pageFunction: `async function pageFunction({ request, log, $, context }) {
       log.info(\`Processing \${request.url}...\`);
       
-      // Enqueue all links from the page
-      await context.enqueueLinks({
-        globs: ['${glob}'],
-        selector: 'a[href]',
-      });
-      
       const pageData = {
         url: request.url,
-        pageTitle: $('title').first().text().trim(),
-        h1: $('h1').first().text().trim(),
-        first_h2: $('h2').first().text().trim(),
-        random_text_from_the_page: $('p').first().text().trim(),
-        metaDescription: $('meta[name="description"]').attr('content') || '',
-        canonicalUrl: $('link[rel="canonical"]').attr('href') || '',
-        ogMetadata: {},
-        jsonLd: undefined,
+        title: $('title').first().text().trim() || null,
+        h1_1: $('h1').first().text().trim() || null,
+        h2_1: $('h2').eq(0).text().trim() || null,
+        h2_2: $('h2').eq(1).text().trim() || null,
+        description: $('meta[name="description"]').attr('content') || null,
+        lang: $('html').attr('lang') || null,
+        og_image: $('meta[property="og:image"]').attr('content') || null,
+        author: $('meta[name="author"]').attr('content') || null,
+        publication_date: $('meta[name="publication_date"]').attr('content') || null,
+        content_type: $('meta[property="og:type"]').attr('content') || 'page',
+        body: $('body').text().trim() || null,
+        jsonLd: null,
       };
 
-      $('meta[property^="og:"]').each((_, el) => {
-        const property = $(el).attr('property');
-        const content = $(el).attr('content');
-        if (property && content) {
-          pageData.ogMetadata[property] = content;
-        }
-      });
-
+      // Extract JSON-LD
       const jsonLdScript = $('script[type="application/ld+json"]');
       if (jsonLdScript.length) {
         try {
