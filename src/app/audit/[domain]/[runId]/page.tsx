@@ -90,6 +90,7 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [pageTypes, setPageTypes] = useState(['page', 'article', 'event', 'contact'])
   const [isNavigating, setIsNavigating] = useState(false)
+  const [expandedNodes, setExpandedNodes] = useState<string[]>(['/']);
 
   useEffect(() => {
     console.log("Audit page mounted. Params:", params);
@@ -308,9 +309,10 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
               setSelectedPath={handleSetSelectedPath}
               onNewCrawl={handleNewCrawl}
               onShowSiteSettings={() => setShowSiteSettings(true)}
-              crawledPages={filteredPages.length}
+              crawledPages={pages.length}
               maxPages={crawlRun?.defaultDatasetId ? pages.length : 0}
               crawlStatus={crawlRun?.status || ''}
+              domain={params.domain.replace(/^(https?:\/\/)?(www\.)?/, '')}
             />
           )}
         </div>

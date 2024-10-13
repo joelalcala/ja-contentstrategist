@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState } from "react"
 import { Page } from "@/lib/types"; // Make sure to create this type in a separate file
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -24,6 +24,7 @@ interface LeftPanelProps {
   crawledPages: number;
   maxPages: number;
   crawlStatus: string;
+  domain: string;
 }
 
 export function LeftPanel({
@@ -34,10 +35,11 @@ export function LeftPanel({
   onShowSiteSettings,
   crawledPages,
   maxPages,
-  crawlStatus
+  crawlStatus,
+  domain
 }: LeftPanelProps) {
   const progress = maxPages > 0 ? Math.min((crawledPages / maxPages) * 100, 100) : 0;
-  const folderTree = buildFolderTree(pages);
+  const folderTree = buildFolderTree(pages, domain);
 
   const getBadgeVariant = (status: string): "default" | "destructive" | "secondary" | "outline" => {
     switch (status.toLowerCase()) {
@@ -51,6 +53,8 @@ export function LeftPanel({
         return 'outline'
     }
   }
+
+  const [expandedNodes, setExpandedNodes] = useState<string[]>(['/']);
 
   return (
     <div className="h-full flex flex-col">
@@ -71,6 +75,9 @@ export function LeftPanel({
               tree={folderTree}
               selectedPath={selectedPath}
               setSelectedPath={setSelectedPath}
+              expandedNodes={expandedNodes}
+              setExpandedNodes={setExpandedNodes}
+              rootLabel={domain}
             />
           </div>
         </ScrollArea>

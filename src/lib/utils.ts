@@ -13,8 +13,10 @@ interface TreeNode {
   isFolder: boolean;
 }
 
-export function buildFolderTree(pages: Array<{ url: string }>): TreeNode {
-  const root: TreeNode = { name: 'Home', children: [], path: '/', count: 0, isFolder: true };
+export function buildFolderTree(pages: Array<{ url: string }>, domain: string): TreeNode {
+  const decodedDomain = decodeURIComponent(domain);
+  const rootName = decodedDomain.replace(/^(https?:\/\/)?(www\.)?/, '');
+  const root: TreeNode = { name: rootName, children: [], path: '/', count: 0, isFolder: true };
   const pathCounts: { [key: string]: number } = {};
 
   pages.forEach(page => {
