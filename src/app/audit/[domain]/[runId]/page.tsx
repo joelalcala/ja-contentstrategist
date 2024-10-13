@@ -200,20 +200,7 @@ export default function AuditPage({ params }: { params: { domain: string; runId:
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-            <div className="relative ml-auto flex-1 md:grow-0">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px]"
-              />
-            </div>
-            <Button onClick={handleRefresh} size="sm" variant="outline" className="h-8 gap-1" disabled={isRefreshing}>
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only">Refresh</span>
-            </Button>
+
           </header>
           <div className="flex-1 overflow-auto p-4 sm:px-6">
             <Tabs defaultValue="page" className="space-y-4">
