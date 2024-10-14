@@ -1,3 +1,19 @@
+export interface Project {
+  project_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface CrawlRun {
+  run_id: string;
+  domain: string;
+  type: string;
+  max_page_count: number;
+  dataset_id: string | null;
+  status: string;
+  project_id: string;
+}
+
 export interface Page {
   url: string;
   title: string | null;
@@ -6,6 +22,7 @@ export interface Page {
   custom_fields?: Record<string, any>;
   page_id?: string;
   run_id: string;
+  project_id: string;
   h1_1: string | null;
   h2_1: string | null;
   h2_2: string | null;

@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { CrawlRun, CrawlPage } from './types';
+import { CrawlRun, CrawlPage, Project } from '../../types';
 import { ApiResponse } from '../types';
 
 export class SupabaseApi {
@@ -11,7 +11,46 @@ export class SupabaseApi {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
   }
+  // Project-related methods
+  async createProject(name: string): Promise<ApiResponse<Project>> {
+    const { data, error } = await this.client
+      .from('Project')
+      .insert({ name })
+      .single();
 
+    return { data: data as Project | null, error: error?.message };
+  }
+
+  async getProject(projectId: string): Promise<ApiResponse<Project>> {
+    const { data, error } = await this.client
+      .from('Project')
+      .select('*')
+      .eq('project_id', projectId)
+      .single();
+
+    return { data: data as Project | null, error: error?.message };
+  }
+
+  async updateProject(projectId: string, updates: Partial<Project>): Promise<ApiResponse<Project>> {
+    const { data, error } = await this.client
+      .from('Project')
+      .update(updates)
+      .eq('project_id', projectId)
+      .single();
+
+    return { data: data as Project | null, error: error?.message };
+  }
+
+  async deleteProject(projectId: string): Promise<ApiResponse<null>> {
+    const { error } = await this.client
+      .from('Project')
+      .delete()
+      .eq('project_id', projectId);
+
+    return { data: null, error: error?.message };
+  }
+
+  // Update existing methods to include project_id
   async createCrawlRun(crawlRun: CrawlRun): Promise<ApiResponse<CrawlRun>> {
     const { data, error } = await this.client
       .from('Crawl-Run')
@@ -41,44 +80,33 @@ export class SupabaseApi {
     return { data: data as CrawlRun | null, error: error?.message };
   }
 
-async insertCrawlPages(pages: CrawlPage[]): Promise<ApiResponse<CrawlPage[]>> {
-  console.log("Received pages for insertion:", pages);
+  async insertCrawlPages(pages: CrawlPage[]): Promise<ApiResponse<CrawlPage[]>> {
+    console.log("Received pages for insertion:", pages);
 
-  // Filter out pages with null URLs
-  const validPages = pages.map(page => ({
-    ...page,
-    publication_date: page.publication_date ? new Date(page.publication_date) : null,
-    jsonLd: page.jsonLd || null,
-    content_type: page.content_type || 'page',
-  })).filter(page => page.url != null);
+    const validPages = pages.map(page => ({
+      ...page,
+      publication_date: page.publication_date ? new Date(page.publication_date) : null,
+      jsonLd: page.jsonLd || null,
+      content_type: page.content_type || 'page',
+    })).filter(page => page.url != null);
 
-  console.log("Valid pages after filtering:", validPages);
+    console.log("Valid pages after filtering:", validPages);
 
-  if (validPages.length === 0) {
-    console.log("No valid pages to insert");
-    return { data: [], error: null };
-  }
+    if (validPages.length === 0) {
+      console.log("No valid pages to insert");
+      return { data: [], error: null };
+    }
 
-  const { data, error } = await this.client
-    .from('Crawl-Pages')
-    .insert(validPages)
-    .select();
-
-  if (error) {
-    console.error("Error inserting pages:", error);
-  } else {
-    console.log("Successfully inserted pages:", data);
-  }
-
-  return { data: data as CrawlPage[] | null, error: error?.message };
-}
-
-  async updateCrawlPages(runId: string, updates: Partial<CrawlPage>): Promise<ApiResponse<CrawlPage[]>> {
     const { data, error } = await this.client
       .from('Crawl-Pages')
-      .update(updates)
-      .eq('run_id', runId)
+      .insert(validPages)
       .select();
+
+    if (error) {
+      console.error("Error inserting pages:", error);
+    } else {
+      console.log("Successfully inserted pages:", data);
+    }
 
     return { data: data as CrawlPage[] | null, error: error?.message };
   }
@@ -148,5 +176,14 @@ async insertCrawlPages(pages: CrawlPage[]): Promise<ApiResponse<CrawlPage[]>> {
     const { data, error } = await query;
 
     return { data: data as CrawlPage[] | null, error: error?.message };
+  }
+
+  async getProjects(): Promise<ApiResponse<Project[]>> {
+    const { data, error } = await this.client
+      .from('Project')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    return { data: data as Project[] | null, error: error?.message };
   }
 }
