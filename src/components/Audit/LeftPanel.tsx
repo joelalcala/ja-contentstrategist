@@ -6,6 +6,7 @@ import { Layers } from "lucide-react"
 import { FileTree } from "./FileTree"
 import { buildFolderTree } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { ProjectSwitcher } from "@/components/ProjectSwitcher"
 
 interface CrawlRun {
   id: string
@@ -58,6 +59,9 @@ export function LeftPanel({
 
   return (
     <div className="h-full flex flex-col">
+      <div className="p-4 border-b">
+        <ProjectSwitcher />
+      </div>
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-4">
