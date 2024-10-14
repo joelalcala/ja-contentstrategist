@@ -179,10 +179,20 @@ export class SupabaseApi {
   }
 
   async getProjects(): Promise<ApiResponse<Project[]>> {
+    console.log('SupabaseApi: Fetching projects...');
     const { data, error } = await this.client
       .from('Project')
       .select('*')
-      .order('created_at', { ascending: false });
+
+    console.log('SupabaseApi: Raw response:', { data, error });
+    console.log('SupabaseApi: Fetched data:', data);
+    console.log('SupabaseApi: Error:', error);
+
+    if (error) {
+      console.error('SupabaseApi: Error fetching projects:', error);
+    } else if (!data || data.length === 0) {
+      console.warn('SupabaseApi: No projects found in the database');
+    }
 
     return { data: data as Project[] | null, error: error?.message };
   }
