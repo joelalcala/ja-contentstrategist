@@ -12,7 +12,7 @@ export function Sidebar() {
           <Package2 className="h-4 w-4 transition-all group-hover:scale-110" />
           <span className="sr-only">Content Strategist</span>
         </Link>
-        <NavItem href="/dashboard" icon={Home} label="Dashboard" />
+        <NavItem href="/projects" icon={Home} label="Projects" />
         <NavItem href="/crawl" icon={Bot} label="Crawl" />
         <NavItem href="/audit" icon={LayoutList} label="Audit" />
         <NavItem href="/sitemap" icon={FolderTree} label="Sitemap" />
