@@ -414,76 +414,72 @@ Path: /project/[projectId]/map/[mapId]/[mapItemId]
 
 ``
 project-root/
-├── .env.local                 # Environment variables (API keys, database URLs)
-├── .gitignore                 # Specifies files to be ignored by Git
-├── package.json               # Project dependencies and scripts
-├── next.config.js             # NextJS configuration
-├── tailwind.config.js         # Tailwind CSS configuration
-├── postcss.config.js          # PostCSS configuration for Tailwind
-├── tsconfig.json              # TypeScript configuration
-├── public/                    # Static assets served directly by NextJS
-│   └── ...                    
+├── ...
 ├── src/
-│   ├── app/                   # NextJS 14 app router structure
-│   │   ├── layout.tsx         # Root layout component for the entire app
-│   │   ├── page.tsx           # Home page component
-│   │   ├── crawl/
-│   │   │   └── page.tsx       # Crawl screen component
-│   │   ├── audit/
-│   │   │   ├── [domain]/
-│   │   │   │   ├── [runId]/
-│   │   │   │   │   ├── page.tsx           # Audit screen component
+│   ├── app/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   ├── project/
+│   │   │   ├── page.tsx                    # Project home component
+│   │   │   ├── [projectId]/
+│   │   │   │   ├── page.tsx                # Project detail component
+│   │   │   │   ├── crawl/
+│   │   │   │   │   └── page.tsx            # Crawl screen component
+│   │   │   │   ├── audit/
+│   │   │   │   │   ├── page.tsx            # Audit screen component
 │   │   │   │   │   └── [pageId]/
-│   │   │   │   │       └── page.tsx       # Page detail screen component
-│   │   ├── map/
-│   │   │   ├── [mapId]/
-│   │   │   │   ├── page.tsx               # Site Map screen component
-│   │   │   │   └── [mapItemId]/
-│   │   │   │       └── page.tsx           # Site Map Item screen component
-│   │   ├── taxonomy/
-│   │   │   └── page.tsx       # Taxonomy screen component
+│   │   │   │   │       └── page.tsx        # Page detail screen component
+│   │   │   │   ├── map/
+│   │   │   │   │   ├── [mapId]/
+│   │   │   │   │   │   ├── page.tsx        # Site Map screen component
+│   │   │   │   │   │   └── [mapItemId]/
+│   │   │   │   │   │       └── page.tsx    # Site Map Item screen component
+│   │   │   │   ├── taxonomy/
+│   │   │   │   │   └── page.tsx            # Taxonomy screen component
+│   │   │   │   └── export-import/
+│   │   │   │       └── page.tsx            # Data Export and Import component
 │   │   ├── account/
-│   │   │   └── page.tsx       # User Account Management component
-│   │   └── export-import/
-│   │       └── page.tsx       # Data Export and Import component
+│   │   │   └── page.tsx                    # User Account Management component
 │   ├── components/
-│   │   ├── ui/                # shadcn components (reusable UI components)
-│   │   │   ├── button.tsx     # Custom button component
-│   │   │   ├── input.tsx      # Custom input component
-│   │   │   └── ...
+│   │   ├── ui/
+│   │   ├── project/
+│   │   │   ├── ProjectList.tsx
+│   │   │   └── ProjectDetails.tsx
 │   │   ├── crawl/
-│   │   │   ├── CrawlForm.tsx  # Form component for initiating a crawl
-│   │   │   └── ...
+│   │   │   └── CrawlForm.tsx
 │   │   ├── audit/
-│   │   │   ├── AuditTable.tsx # Table component for displaying audit results
-│   │   │   ├── SiteTree.tsx   # Tree component for site structure
-│   │   │   └── ...
+│   │   │   ├── AuditTable.tsx
+│   │   │   ├── SiteTree.tsx
+│   │   │   └── PageDetail.tsx
 │   │   ├── sitemap/
-│   │   │   ├── SiteMapTree.tsx # Tree component for sitemap
-│   │   │   └── ...
-│   │   └── ...
+│   │   │   ├── SiteMapTree.tsx
+│   │   │   └── SiteMapItemDetail.tsx
+│   │   ├── taxonomy/
+│   │   │   └── TaxonomyList.tsx
+│   │   └── export-import/
+│   │       └── ExportImportForm.tsx
 │   ├── lib/
 │   │   ├── api/
-│   │   │   ├── types.ts       # Common API types
+│   │   │   ├── types.ts
 │   │   │   ├── apify/
-│   │   │   │   ├── types.ts   # Apify-specific types
-│   │   │   │   └── apifyApi.ts # Apify API integration class
 │   │   │   ├── supabase/
-│   │   │   │   ├── types.ts   # Supabase-specific types
-│   │   │   │   └── supabaseApi.ts # Supabase API integration class
-│   │   │   └── index.ts       # API module exports
-│   │   └── utils.ts           # General utility functions
+│   │   │   └── index.ts
+│   │   └── utils.ts
 │   ├── hooks/
-│   │   ├── useApifyCrawl.ts   # Custom hook for managing Apify crawls
-│   │   ├── useSupabase.ts     # Custom hook for Supabase operations
-│   │   └── ...
+│   │   ├── useProject.ts
+│   │   ├── useCrawl.ts
+│   │   ├── useAudit.ts
+│   │   ├── useSiteMap.ts
+│   │   └── useTaxonomy.ts
 │   ├── types/
-│   │   ├── crawl.ts           # TypeScript types for crawl-related data
-│   │   ├── audit.ts           # TypeScript types for audit-related data
-│   │   └── ...
+│   │   ├── project.ts
+│   │   ├── crawl.ts
+│   │   ├── audit.ts
+│   │   ├── sitemap.ts
+│   │   └── taxonomy.ts
 │   └── styles/
-│       └── globals.css        # Global styles and Tailwind directives
-└── README.md                  # Project documentation and setup instructions
+│       └── globals.css
+└── ...
 ``
 
 
