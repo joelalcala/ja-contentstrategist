@@ -12,14 +12,32 @@ The project will use NextJS 14.2, shadcn, Tailwind CSS, Lucide Icons.
 
 # Core Functionalities
 
-## 1. Crawl Screen
+## 1. Project home
+Path: /project
+The project home allows users to create new projects or select existing ones.
+- Projects contain one or more Subdomains. Each Subdomain has one or more Crawls/Audits. Crawls produce Pages, which may have different versions for each crawl.
+- For each project, we show the name and key information about the project.
+- The user is able to create or archive a project.
+``
+let { data: Project, error } = await supabase
+  .from('Project')
+  .select('*')
+``
+
+## 1.a. Project detail
+Path: /project/[projectId]
+A screen where user can review project details. 
+- The user can set project details like name and description. The user can see crawls associated with project.
+- The user can start a new crawl.
+
+## 1.b. Crawl Screen
 The crawl screen allows the user to enter the domain to crawl.
-Path: /crawl
+Path: /project/[projectId]/crawl
 - There is a field for domain (textbox), scope (dropdown: subdomain or entire domain) and max number of pages to crawl (dropdown: 10,50,100,500, entire site).
 - When the user submits the form, the page enters a loading state while the domain is submitted to Apify.
 - We are using the Cheerio Scraper from Apify (apify/cheerio-scraper). The crawler extracts the page's: page path, title, description, OG metadata, JSON-LD, body.
 - When the input is submitted to Apify, a run Id is returned and a dataset.
-- Immediately upon receiving the run Id, we direct the user to the audit screen: "/audit/[domain]/[runId]"
+- Immediately upon receiving the run Id, we direct the user to the audit screen: "/project/[projectId]/audit"
 
 #### Cheerio Scraper API documentation
 ```
@@ -121,14 +139,13 @@ const input = {
 
 ## 2. Audit Screen
 The audit screen displays the crawl status (total pages crawled vs to be crawled), lists the pages crawled with key information, allows the user to filter pages crawled, allows user to tag pages and allows the user to click into a page detail.
-Path: /audit/[domain]/[runId]
+Path: /project/[projectId]/audit
 - As the user is directed to the audit page the run Id, domain, dataset and other information is synced with the Crawl-Run Supabase table. 
 - The crawl screen has three areas:
   - **Aside panel containing:**:
     - Site tree that represents paths on the site crawled. Each path has the number of pages under that particular path. When the user clicks on a path it filters the page table.
     - Crawl information in a progress bar that shows the number of pages crawled vs pages in the queue. It also shows the status of the crawl. If SUCCEEDED, then the status disappears. If the crawl FAILED, then the user has the option of resurrecting the crawl. Additional metadata about the crawl is also shown here.
   - **Main panel containing**
-    - Breadcrumbs showing "Audit > [Domain] > [Run Id]".
     - Search box allowing the user to search for pages by typing keywords. There is a delay before the search results are shown in the data table.
     - Filtering functionality that allows users to filter by title, path, content type, status and custom fields. Setting a filter shows filter chips that the users can use to remove filters. The filters narrow down the results in the data table.
     - Content type tabs that allow users to toggle between content types. Content types represent the OG metadata or JSON-LD @type information. Clicking on one of the options filters the data table.
@@ -139,7 +156,7 @@ Path: /audit/[domain]/[runId]
       - When a user clicks on a page row, they are directed to the page detail screen: /audit/[domain]/[runId]/[pageId]
 
 **Supabase insert multiple rows:**
-``
+```
 const { data, error } = await supabase
   .from('Crawl-Pages')
   .insert([
@@ -147,17 +164,17 @@ const { data, error } = await supabase
     { some_column: 'otherValue' },
   ])
   .select()
-``
+```
 **Supabase update rows:**
-``
+```
 const { data, error } = await supabase
   .from('Crawl-Pages')
   .update({ other_column: 'otherValue' })
   .eq('some_column', 'someValue')
   .select()
-``        
+```      
 **Supabase filtering:**
-``
+```
 
 let { data: Crawl-Pages, error } = await supabase
   .from('Crawl-Pages')
@@ -178,7 +195,18 @@ let { data: Crawl-Pages, error } = await supabase
   // Arrays
   .contains('array_column', ['array', 'contains'])
   .containedBy('array_column', ['contained', 'by'])
-``
+```
+
+**Supabase Project schema**:
+```
+create table
+  public."Project" (
+    created_at timestamp with time zone not null default now(),
+    name text null default 'My project'::text,
+    project_id uuid not null default gen_random_uuid (),
+    constraint Project_pkey primary key (project_id)
+  ) tablespace pg_default;
+  ```
 
 **Supabase Crawl-Pages schema**
 ```
@@ -191,7 +219,17 @@ create table
     body text null,
     custom_fields json null,
     page_id uuid not null default gen_random_uuid (),
-    run_id text not null default gen_random_uuid (),
+    run_id text not null default ''::text,
+    h1_1 text null,
+    h2_1 text null,
+    h2_2 text null,
+    "jsonLd" json null,
+    lang text null,
+    description text null,
+    og_image text null,
+    author text null,
+    publication_date timestamp without time zone null,
+    project_id text null,
     constraint Crawl - Pages_pkey primary key (page_id)
   ) tablespace pg_default;
 ```
@@ -206,6 +244,7 @@ create table
     run_id text not null,
     dataset_id text null,
     status text null,
+    project_id text null,
     constraint Crawl - Run_pkey primary key (run_id),
     constraint Crawl - Run_apify_key unique (run_id),
     constraint Crawl - Run_dataset_id_key unique (dataset_id)
@@ -237,7 +276,7 @@ Returns:
 Promise<DatasetContent>
 
 ## 3. Page detail
-Path: /audit/[domain]/[runId]/[pageId]
+Path: /project/[projectId]/audit/[pageId]
 - The page detail screen shows information captured from the page.
 - The screen has a commen section where user's can leave comment on a particular page. When comments are posted, they are listed with a time stamp.
 - The user is able to make selections on the page detail screen, like the status field. 
@@ -246,14 +285,14 @@ Path: /audit/[domain]/[runId]/[pageId]
 - The user can also assign a page to an item in the Site Map screen.
 
 ## 4. Site Map Screen
-Path: /map/[mapId]
+Path: /project/[projectId]/map/[mapId]
 - Create a new sitemap or select an existing one 
 - The sitemap is a sortable, hierarchical tree that allows users to drag each item around to create the site hierarchy.
 - The user is able to select a page type for the sitemap.
 - Some items in the sitemap represent groups of pages (like sets of articles).
 - The user is able to add more detail to a Site Map item by clicking on the sitemap tree item.
 
-``
+```
 /* eslint-disable react/no-multi-comp */
 import PropTypes from 'prop-types';
 import React, { Component } from 'react';
@@ -345,10 +384,10 @@ class App extends Component {
 
 export default App;
 
-``
+```
 
 ## 5. Site Map Item
-Path: /map/[mapId]/[mapItemId] 
+Path: /project/[projectId]/map/[mapId]/[mapItemId] 
 - The Site map item contains the name of the sitemap item.
 - The user can add more details to the sitemap item, like a description.
 - The user can also comment on the sitemap item.
